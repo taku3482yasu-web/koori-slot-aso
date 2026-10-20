@@ -20,58 +20,92 @@ export const BIG_CARDS = [
     { kind: 'キャラ解説', who: 'tomoishi', name: 'ともいし', lines: ['こおりくんのお母さん。', 'パーマ頭の石に黄色いエプロン。', 'こおりくんをいつも見守っている。'] },
     { kind: 'ステージ解説', stage: 'middle', name: '摩天楼 中間階層', lines: ['前兆のときに来る階。', 'ライバルチームとバトルになり、', '倒せばボーナス確定！'] },
     { kind: 'キャラ解説', who: 'okagappa', name: 'チーム5DX', lines: ['おかがっぱ・ひびきまくり・やまもぅ。', 'ライバルの中ではいちばん弱い。', 'ノリと勢いで摩天楼に来た。'] },
-    { kind: 'キャラ解説', who: 'asahara', name: 'チームASK-3', lines: ['KING.ASAHARA・Mr.SASAKI・Mr.KOTANI。', 'しご出来のビジネスマンたち。', '財宝で会社を大きくしたい。'] },
-    { kind: 'キャラ解説', who: 'ueno', name: 'チームお願いマッスル', lines: ['シバター・ウエノーブル・イケキム。', 'ライバルの中でいちばん強い。', '出てきたら熱い！'] },
+    { kind: 'キャラ解説', who: 'asahara', name: 'チームASK-3', lines: ['KING.ASAHARA・Mr.SASAKI・Mr.KOTANI。', 'CS城の主 ASAHARA は策略家で、', 'おにおにのライバル。'] },
+    { kind: 'キャラ解説', who: 'ueno', name: 'チームお願いマッスル', lines: ['シバター・ウエノーブル・イケキム。', '筋肉の貴族とアイドル盗賊がいる', 'いちばん強いチーム。出たら熱い！'] },
     { kind: 'ステージ解説', stage: 'boss', name: '四天王の階', lines: ['22・33・44・55階には四天王、', '56階には大魔王ASO がいる。', 'ここにいるときは超高確！'] },
     { kind: 'キャラ解説', who: 'goldDog', name: 'ゴールド金面犬', lines: ['摩天楼に住み着いた敵の中で', 'いちばん強い黄金の犬。', '倒せば上乗せがいちばん多い。'] },
-    { kind: 'キャラ解説', who: 'maou', name: '大魔王ASO', lines: ['56階にいる摩天楼の主。', '大量の金銀財宝を持っている', 'とうわさされている。'] },
+    { kind: 'キャラ解説', who: 'maou', name: '大魔王ASO', lines: ['ASOの壺の封印から', 'よみがえった摩天楼の主。', '無から宝や武器を生み出す。'] },
     { kind: 'キャラ解説', who: 'naitei', name: 'ナイナイ・アルアル', lines: ['シーシャ・ナイテイの兄弟。', '天国にいると、カットインで', '教えてくれることがある。'] }
 ];
 
 // REG は短い版: 主人公・摩天楼・階・中間階層だけ
 export const REG_CARDS = BIG_CARDS.filter(c => ['koori', 'onioni'].includes(c.who) || c.stage);
 
-// エピソードBIG の話。scenes は順に流れる場面 (bg: 背景 / cast: 出るキャラ [id, 向き] / who: 話す人 / line: セリフ)
-//   bg: 'home' (こおりくんの家) / 'town' (夕焼けの町) / 'tower' (摩天楼の前) / 'middle' (中間階層) / 'boss' (四天王の階) / 'top' (最上階)
+// エピソードBIG の話。scenes は5G ごとに進む場面 (50G で10場面。セリフは長いと折り返し、3行まで)
+//   bg: 背景 / cast: 出るキャラ ('id' か { id, hidden: true } = 正体不明の影絵) / who: 話す人 / line: セリフ
+//   then: { who, line } か、その配列。同じ場面でセリフのあとに順に出す / cast の drop: true で上から落ちてくる / crowd: 群れで出すキャラ (右側に並ぶ) / chase: true で群れに追いかけ回される
+//   bg: 'home' (こおりくんの家) / 'town' (夕焼けの町) / 'tower' (摩天楼の前・全体) / 'lobby' (摩天楼1階) / 'middle' (中間階層) / 'boss' (四天王の階) / 'top' (最上階)
 export const EPISODES = [
     {
         title: '借金',
         scenes: [
-            { bg: 'home', cast: ['koori', 'onioni'], who: 'おにおに', line: 'こおり、今月の返済はまだか？' },
-            { bg: 'home', cast: ['koori', 'onioni'], who: 'こおりくん', line: 'ご、ごめん…お金がないんだ…' },
-            { bg: 'home', cast: ['koori', 'onioni'], who: 'おにおに', line: '3万6千円、利子つきで待ってるぞ' },
-            { bg: 'home', cast: ['tomoishi', 'koori'], who: 'ともいし', line: 'こおり、なにしよっと！' },
-            { bg: 'home', cast: ['tomoishi', 'koori'], who: 'こおりくん', line: 'なんとかしてお金を作らなきゃ…' }
-        ]
-    },
-    {
-        title: 'うわさ',
-        scenes: [
-            { bg: 'town', cast: ['koori', 'furukawa'], who: 'ふるカワ', line: 'ねえ、ASO摩天楼って知ってる？' },
-            { bg: 'tower', cast: ['koori', 'furukawa'], who: 'ふるカワ', line: '山口と福岡の境目に、急に建ったんだって' },
-            { bg: 'tower', cast: ['koori', 'furukawa'], who: 'ふるカワ', line: 'てっぺんに大量の財宝があるらしいよ' },
-            { bg: 'tower', cast: ['koori', 'furukawa'], who: 'こおりくん', line: '財宝…！それなら借金が返せる！' },
-            { bg: 'tower', cast: ['koori', 'furukawa'], who: 'ふるカワ', line: 'でも四天王と大魔王がいるって…' }
+            // 第1話はユーザーが書いた文章 (2026-10-21)
+            { bg: 'home', cast: ['koori', 'onioni'], who: 'おにおに', line: 'おいこおり、今月の返済はまだか' },
+            { bg: 'home', cast: ['koori', 'onioni'], who: 'こおりくん', line: 'もうちょっとだけ待って！もうちょっとだけ！おねがいおにおに～' },
+            { bg: 'home', cast: ['koori', 'onioni'], who: 'おにおに', line: 'たく...仕方ないな。もう少しだけだぞ。破ったらパンツ見せろよ。' },
+            { bg: 'home', cast: ['koori', 'onioni'], who: 'こおりくん', line: 'ええ～～～！' },
+            { bg: 'home', cast: ['koori', 'tomoishi'], who: 'ともいし', line: 'こおりなにしよっと！' },
+            { bg: 'home', cast: ['koori', 'tomoishi'], who: 'こおりくん', line: 'なんとかしないと...！こおり尊厳の危機！' },
+            { bg: 'town', cast: ['koori', 'furukawa'], who: 'ふるカワ', line: 'ねえ、こおりくんASO摩天楼って知ってる？' },
+            { bg: 'town', cast: ['koori', 'furukawa'], who: 'こおりくん', line: 'ASO摩天楼？なにそれ？' },
+            { bg: 'tower', cast: ['koori', 'furukawa'], who: 'ふるカワ', line: 'やまぐっちとおかおかの境目に急に現れたんだって。そこには危ない怪物もいるけど、てっぺんには大量の財宝があるらしいよ！' },
+            { bg: 'town', cast: ['koori', 'furukawa'], who: 'こおりくん', line: '財宝...!それなら借金を返せる！こおり生きていける！' }
         ]
     },
     {
         title: '仲間集め',
         scenes: [
-            { bg: 'town', cast: ['koori', 'yasu'], who: 'こおりくん', line: 'やすさん、いっしょに摩天楼へ行こう！' },
-            { bg: 'town', cast: ['koori', 'yasu', 'tamu'], who: 'たむさん', line: 'おもしろそうやん、行く行く' },
-            { bg: 'town', cast: ['koori', 'yasu', 'tamu', 'dake'], who: 'だけさん', line: '力仕事ならまかせとけ！' },
-            { bg: 'town', cast: ['koori', 'yasu', 'tamu', 'dake', 'onioni'], who: 'おにおに', line: '金を返すまで、おれも見張りでついていく' },
-            { bg: 'tower', cast: ['dake', 'tamu', 'yasu', 'onioni', 'koori'], who: 'こおりくん', line: 'チームばりきつよめ、出発だ！' }
+            // 第2話はユーザーが書いた文章 (2026-10-21)
+            { bg: 'town', cast: ['koori'], who: 'こおりくん', line: 'そうと決まれば仲間集めだ！' },
+            { bg: 'town', cast: ['koori', 'yasu'], who: 'こおりくん', line: 'やすさん！急だがじゃんけんだ！' },
+            { bg: 'town', cast: ['koori', 'yasu'], who: 'やすさん', line: 'え！？急になんですの！？' },
+            { bg: 'town', cast: ['koori', 'yasu'], who: 'こおりくん', line: 'じゃんけんポン！...こおりの勝ち～！というわけで一緒に摩天楼に行くよ！' },
+            { bg: 'town', cast: ['koori', 'yasu'], who: 'やすさん', line: 'ええ！？本気で言ってる！？あそこ危ないって噂だよ！？' },
+            { bg: 'town', cast: ['koori', 'yasu', 'dake'], who: 'だけさん', line: '話はこの鍛えた地獄耳で聞かせてもらった！' },
+            { bg: 'town', cast: ['koori', 'yasu', 'dake'], who: 'だけさん', line: '私もついていくぞ！この鍛え上げたこぶしでなんでもぶっ飛ばしてあげよう！' },
+            { bg: 'town', cast: ['koori', 'yasu', 'dake', 'tamu'], who: 'たむさん', line: '俺もついてくよ。面白そうやし。暇つぶしにもなるでしょ。' },
+            { bg: 'town', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'おにおに', line: 'こおりが金を返すまで、不安だから俺も見張りでついていくぞ。' },
+            { bg: 'tower', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'こおりくん', line: 'よーし！それじゃあチームばりきつよめ！出発だ', then: { who: '全員', line: 'おおーー！' } }
         ]
     },
     {
-        title: 'ライバル',
+        title: 'ASO摩天楼',   // 題名は仮 (ユーザーに確認する)
         scenes: [
-            { bg: 'middle', cast: ['okagappa', 'hibikimakuri', 'yamamou'], who: 'おかがっぱ', line: '財宝はノリでいただくっぴ！' },
-            { bg: 'middle', cast: ['sasaki', 'asahara', 'kotani'], who: 'KING.ASAHARA', line: '財宝で、わが社をもっと大きくする' },
-            { bg: 'middle', cast: ['sasaki', 'asahara', 'kotani'], who: 'Mr.KOTANI', line: '計算では、勝率は 99% です' },
-            { bg: 'middle', cast: ['shibata', 'ueno', 'ikekimu'], who: 'ウエノーブル', line: '筋肉こそ、最強の財宝なのだ！' },
-            { bg: 'middle', cast: ['koori', 'onioni'], who: 'こおりくん', line: 'みんな強そう…でも負けない！' }
+            // 第3話はユーザーが書いた文章 (2026-10-21)
+            { bg: 'lobby', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'こおりくん', line: 'ここが摩天楼か' },
+            { bg: 'lobby', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'おにおに', line: '気をつけろよ。うわさだと他にも財宝を狙ってここにいるやつらもいるらしいからな。' },
+            { bg: 'lobby', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'だけさん', line: '大丈夫だ！なにがこようと私がたたきつぶしてくれる！' },
+            { bg: 'lobby', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni', { id: 'harry', hidden: true }], who: '？？？', line: 'ハリー！' },
+            { bg: 'lobby', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni', 'harry'], who: 'やすさん', line: 'ん？何今の' },
+            { bg: 'lobby', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], crowd: 'harry', who: 'ハリー', line: 'メンキョナイー！！' },
+            // ハリーの群れに追いかけ回される
+            { bg: 'lobby', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], crowd: 'harry', chase: true, who: 'こおりくん', line: 'うわああああああ！？' },
+            { bg: 'boss', cast: [{ id: 'zumitani', hidden: true }, { id: 'daishi', hidden: true }], who: '？？？', line: '来るものには試練を', then: { who: '？？？', line: '逃げるものには死を' } },
+            { bg: 'boss', cast: [{ id: 'runaya', hidden: true }, { id: 'nozoema', hidden: true }], who: '？？？', line: 'このASO四天王が', then: { who: '？？？', line: '貴様らに与えよう' } },
+            { bg: 'tower', cast: [{ id: 'daishi', hidden: true }, { id: 'zumitani', hidden: true }, { id: 'runaya', hidden: true }, { id: 'nozoema', hidden: true }], who: '？？？', line: 'さあ、来たれ！挑戦者たちよ！' }
+        ]
+    },
+    {
+        title: 'ライバル',   // 題名は前の仮の案のまま (ユーザーに確認する)
+        scenes: [
+            // 第4話はユーザーが書いた文章 (2026-10-21)
+            { bg: 'middle', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'たむさん', line: 'なんとかまいたね' },
+            { bg: 'middle', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'こおりくん', line: 'ちょ、ちょっと休憩．．．' },
+            { bg: 'middle', cast: [{ id: 'okagappa', hidden: true }], who: '？？？', line: 'あ～らあらあら　ま～えを見れば　こおりいるねおかピポ　イェア！' },
+            { bg: 'middle', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni', { id: 'okagappa', hidden: true }], who: 'おにおに', line: '...おまえたちは...' },
+            {
+                bg: 'middle', cast: ['okagappa', 'hibikimakuri', 'yamamou'], who: 'おかがっぱ', line: 'お宝は俺たちのもの　イェア！',
+                then: [{ who: 'ひびきまくり', line: 'ここすっごいひびくよ～' }, { who: 'やまもぅ', line: 'お宝は俺たち５DXのものだ！' }]
+            },
+            { bg: 'middle', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'こおりくん', line: 'おかがっぱたち！君たちもきてたんだ！' },
+            { bg: 'middle', cast: ['okagappa', 'hibikimakuri', 'yamamou'], who: 'ひびきまくり', line: 'ぼくたちだけじゃないよ～。ほかにもお宝を狙ってほかのチームを倒そうとしてるひとたちもいるよ～。' },
+            // ウエノーブルが上から落ちてくる
+            { bg: 'middle', cast: [{ id: 'ueno', hidden: true, drop: true }], who: '？？？', line: 'そのと～～～～～り！！' },
+            {
+                bg: 'middle', cast: ['shibata', 'ueno', 'ikekimu'], who: 'ウエノーブル', line: '今やこの摩天楼にいるだれもがライバルなのだ！',
+                then: [{ who: 'シバター', line: 'チームが３つ集まった！？良い絵になる予感！んなああ～' }, { who: 'イケキム', line: 'シバター、鳴くな。気が散るだろうが。' }]
+            },
+            { bg: 'middle', cast: ['shibata', 'ueno', 'ikekimu'], who: 'ウエノーブル', line: 'さあ始めよう！財宝を賭けたデスマッチを！！' }
         ]
     },
     {

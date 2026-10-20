@@ -151,6 +151,14 @@ const EP_BG = {
         for (let i = 1; i < 8; i++) if (frameOf(t + i * 300, 900)) rect(ctx, 246, 128 - i * 14, 8, 2, '#8fd6f7');
         rect(ctx, 0, 118, W, 62, '#2a1a20');
     },
+    // 摩天楼1階 (エントランス。通常時の 1〜10階と同じ明るいロビー)
+    lobby(ctx, t) {
+        room(ctx, { sky: ['#7ac8f0', '#d8f0ff'], wall: '#d8cfc0', floor: ['#efe6d6', '#b8ad98'], cityColor: '#7a8aa0', lights: '#ffffff' });
+        rect(ctx, 134, 40, 52, 88, '#8a8e96');
+        rect(ctx, 137, 44, 22, 84, '#c8ccd4');
+        rect(ctx, 161, 44, 22, 84, '#c8ccd4');
+        text(ctx, '1F', 160, 34, { size: 8, color: '#ff8a20', stroke: null });
+    },
     middle(ctx, t) {
         rect(ctx, 0, 0, W, H, vgrad(ctx, 0, H, ['#1a1438', '#3a2a5a', '#120c22']));
         for (let x = 0; x < W; x += 40) rect(ctx, x, 20, 6, 98, 'rgba(255,255,255,.06)');
@@ -165,13 +173,90 @@ const EP_BG = {
     }
 };
 
-// いまの場面: ボーナスのゲーム数を場面の数で割って、消化したぶんだけ進める (最後の場面は終わりまで)
+// いまの場面: 5G ごとに次の場面へ進める (50G で10場面。場面が足りないときは最後の場面を終わりまで)
+export const SCENE_GAMES = 5;
 export function episodeScene(b) {
     const ep = EPISODES[b.episode % EPISODES.length];
     const played = b.games - b.left;
-    const i = Math.min(ep.scenes.length - 1, Math.floor(played / (b.games / ep.scenes.length)));
+    const i = Math.min(ep.scenes.length - 1, Math.floor(played / SCENE_GAMES));
     return { ep, scene: ep.scenes[i], index: i };
 }
+
+// セリフを箱の幅で折り返す (最大3行。'\n' でも改行できる)。
+// 1行に収まるときは大きい文字。折り返すときは、行の終わり近くに「。！？」や空白があればそこで区切り、行の頭に「。、！？～」や小さい字が来ないようにする
+const LINE_W = 282;
+const PUNCT = '。、！？!?…」)～ーァィゥェォャュョッぁぃぅぇぉゃゅょっ';
+function wrapLine(ctx, line) {
+    ctx.save();
+    ctx.font = `11px ${BODY}`;
+    if (!line.includes('\n') && ctx.measureText(line).width <= LINE_W) {
+        ctx.restore();
+        return { rows: [line], size: 11 };
+    }
+    ctx.font = `9.5px ${BODY}`;
+    const rows = [];
+    for (const part of line.split('\n')) {
+        let cs = [...part];
+        while (cs.length) {
+            let n = 1;
+            while (n < cs.length && ctx.measureText(cs.slice(0, n + 1).join('')).width <= LINE_W) n++;
+            if (n < cs.length) {
+                while (n < cs.length && PUNCT.includes(cs[n])) n++;
+                const cut = cs.slice(0, n).findLastIndex(c => '。！？!?　 '.includes(c));
+                if (cut >= 0 && cut >= n - 8 && cut + 1 < n) n = cut + 1;
+            }
+            rows.push(cs.slice(0, n).join(''));
+            cs = cs.slice(n);
+        }
+    }
+    ctx.restore();
+    return { rows: rows.slice(0, 3), size: 9.5 };
+}
+
+// cast の1人: 'id' か { id, hidden: true } (正体がまだわからないキャラ。影絵で出して、名前は「？？？」にする)
+function castOf(c) {
+    return typeof c === 'string' ? { id: c } : c;
+}
+
+// 影絵のキャラ (うしろがくらくても見えるように、紫のふちどりをつける)
+function hiddenChar(ctx, id, x, ground, w, h, opts) {
+    const a = ART[id];
+    const scale = Math.min(w / a.w, h / a.h, 2.8);
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ch(ctx, id, x + dx, ground + dy, { ...opts, scale, tint: '#b08aff', alpha: 0.8 });
+    ch(ctx, id, x, ground, { ...opts, scale, silhouette: true });
+}
+
+// 群れ (ハリーなど): x0〜x1 に2列でぴょんぴょん跳ねる
+function drawCrowd(ctx, t, id, x0, x1, faceLeft) {
+    const rnd = seeded(7);
+    for (let row = 0; row < 2; row++) {
+        const count = 6;
+        for (let i = 0; i < count; i++) {
+            const x = x0 + (i + (row ? 0.5 : 0)) * ((x1 - x0) / count) + rnd() * 4;
+            const hop = Math.abs(Math.sin(t / 180 + i * 1.7 + row)) * 4;
+            ch(ctx, id, x, (row ? 124 : 112) - hop, { scale: row ? 1.3 : 1.1, flip: faceLeft, frame: frameOf(t + i * 90, 200) });
+        }
+    }
+}
+
+// 追いかけ回される: キャラが左から右へ走り、うしろから群れが追いかける (画面の外に出たら左からもう一度)
+function drawChase(ctx, t, k, scene) {
+    const cast = scene.cast.map(castOf);
+    const span = 150 + cast.length * 34;
+    const ox = (k * 0.11) % (W + span) - span;
+    for (let i = 0; i < 7; i++) {
+        const hop = Math.abs(Math.sin(t / 120 + i * 1.3)) * 5;
+        ch(ctx, scene.crowd, ox + i * 18, (i % 2 ? 124 : 116) - hop, { scale: 1.2, frame: frameOf(t + i * 70, 150) });
+    }
+    cast.forEach((c, i) => {
+        const hop = Math.abs(Math.sin(t / 100 + i * 2)) * 6;
+        const x = ox + 150 + i * 34;
+        fitChar(ctx, c.id, x + Math.sin(t / 70 + i) * 2, 122 - hop, 34, 44, { frame: frameOf(t, 140) }, 2);
+        if (frameOf(t + i * 100, 260)) text(ctx, '!', x + 10, 122 - 50 - hop, { size: 10, color: '#ffffff', lw: 3 });
+    });
+}
+
+const DROP_MS = 600;   // 落ちてくるキャラが着地するまで
 
 function drawEpisode(ctx, t, b) {
     const { ep, scene, index } = episodeScene(b);
@@ -180,24 +265,67 @@ function drawEpisode(ctx, t, b) {
         b.sceneAt = t;
     }
     const k = t - (b.sceneAt || t);
+    // then があれば、セリフが出きって少したってから次の人に切りかえる (then は1つでも配列でもよい。k2 は今のセリフが出はじめてからの時間)
+    const says = [scene, ...[].concat(scene.then || [])];
+    let say = scene, k2 = k;
+    for (const next of says.slice(1)) {
+        const ms = [...say.line].length * 45 + 1200;
+        if (k2 < ms) break;
+        k2 -= ms;
+        say = next;
+    }
+    // 落ちてくるキャラが着地したら、画面を少しゆらす
+    const land = k - DROP_MS;
+    const shake = scene.cast.some(c => c.drop) && land > 0 && land < 350;
+    ctx.save();
+    if (shake) ctx.translate(Math.sin(land / 18) * 4 * (1 - land / 350), 0);
     (EP_BG[scene.bg] || EP_BG.tower)(ctx, t);
-    // 出るキャラを左から並べる (右半分にいるキャラは左を向く)
-    const n = scene.cast.length;
-    scene.cast.forEach((id, i) => {
-        const x = n === 1 ? W / 2 : 50 + i * ((W - 100) / (n - 1 || 1));
-        const big = id === 'maou' ? 72 : 60;
-        const talking = scene.who && ART[id] && frameOf(t, 220) && k < 2400;
-        fitChar(ctx, id, x, 122 + (talking ? -1 : 0), 64, big, { frame: frameOf(t, 500), flip: n > 1 && x > W / 2 }, 2.8);
-    });
+    const talking = say.who && frameOf(t, 220) && k2 < 2400;
+    if (scene.chase) drawChase(ctx, t, k, scene);
+    else {
+        // 出るキャラを左から並べる (右半分にいるキャラは左を向く)。群れがいるときは、キャラを左に寄せて群れを右に置く
+        const cast = scene.cast.map(castOf);
+        const n = cast.length;
+        const right = scene.crowd ? 160 : W - 50;
+        cast.forEach((c, i) => {
+            const x = n === 1 ? (scene.crowd ? 100 : W / 2) : (scene.crowd ? 34 : 50) + i * ((right - (scene.crowd ? 34 : 50)) / (n - 1 || 1));
+            const big = c.id === 'maou' ? 72 : 60;
+            const box = scene.crowd && n > 3 ? 34 : n > 4 ? 52 : 64;
+            const opts = { frame: frameOf(t, 500), flip: n > 1 && x > W / 2 };
+            // drop: 上から落ちてきて着地する (着地のときに土ぼこり)
+            const fall = c.drop ? -150 * Math.pow(1 - Math.min(1, k / DROP_MS), 2) : 0;
+            if (c.hidden) hiddenChar(ctx, c.id, x, 122 + fall, box, big, opts);
+            else fitChar(ctx, c.id, x, 122 + fall + (talking ? -1 : 0), box, big, opts, 2.8);
+            if (c.drop && land > 0 && land < 500) {
+                const a = 1 - land / 500;
+                for (const d of [-1, 1]) {
+                    ctx.fillStyle = `rgba(220,210,240,${a * 0.8})`;
+                    ctx.beginPath();
+                    ctx.arc(x + d * (14 + land / 12), 120 - land / 40, 5 + land / 60, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        });
+        if (scene.crowd) drawCrowd(ctx, t, scene.crowd, 196, 312, true);
+    }
+    ctx.restore();
     // 場面が変わったときは少し暗くしてから明るく
     if (k < 300) rect(ctx, 0, 0, W, H, `rgba(0,0,0,${0.6 * (1 - k / 300)})`);
     text(ctx, 'EPISODE BIG', 8, 12, { size: 10, align: 'left', color: '#ffffff', lw: 3 });
     text(ctx, `第${(b.episode % EPISODES.length) + 1}話「${ep.title}」`, W - 8, 12, { size: 10, align: 'right', color: '#ffffff', lw: 3 });
-    // セリフ (1文字ずつ出る)
-    roundRect(ctx, 10, 124, 300, 34, 4, 'rgba(0,0,0,.78)', '#ffd08a');
-    text(ctx, scene.who, 20, 134, { size: 9, align: 'left', color: '#ff8a7a', stroke: null, font: BODY, weight: '700' });
-    const shown = [...scene.line].slice(0, Math.floor(k / 45)).join('');
-    text(ctx, shown, 20, 149, { size: 11, align: 'left', color: '#ffffff', stroke: null, font: BODY });
+    // セリフ (1文字ずつ出る。長いときは折り返して文字を少し小さく。3行のときは箱を上にのばす)
+    const { rows, size } = wrapLine(ctx, say.line);
+    const top = rows.length === 3 ? 112 : rows.length === 2 ? 120 : 124;
+    roundRect(ctx, 10, top, 300, 158 - top, 4, 'rgba(0,0,0,.78)', '#ffd08a');
+    text(ctx, say.who, 20, top + (rows.length === 1 ? 10 : 9), { size: 9, align: 'left', color: '#ff8a7a', stroke: null, font: BODY, weight: '700' });
+    let rest = Math.floor(k2 / 45);
+    rows.forEach((row, r) => {
+        const cs = [...row];
+        const shown = cs.slice(0, Math.max(0, rest)).join('');
+        rest -= cs.length;
+        const y = rows.length === 1 ? 149 : top + 20 + r * 10;
+        text(ctx, shown, 20, y, { size, align: 'left', color: '#ffffff', stroke: null, font: BODY });
+    });
 }
 
 // ----- 下の帯: 獲得枚数・残りゲーム数・進み具合。AT確定のあとは右上に「AT確定」 -----
