@@ -5,7 +5,7 @@
 // 操作 (レバー・停止・PUSH) はここを通して内部処理に伝え、内部処理のイベントは進行役 (director) に渡す。
 // =====================================================================
 
-import { createMachine, STRIPS } from '../logic/index.js';
+import { createMachine, EVENTS, STRIPS } from '../logic/index.js';
 import { createDirector } from './lcd/director.js';
 import { createReelView } from './reels/reelView.js';
 import { Sound } from './sound/sound.js';
@@ -147,6 +147,14 @@ export function createGame({ setting = 1 } = {}) {
         if (q.get('direct')) d.direct();
         if (q.get('bonus')) d.bonus(q.get('bonus'));
         if (q.get('role')) d.setNextRole(q.get('role'));
+        // ボーナスの最初のゲームの役 (例: ?bonus=big&bonusrole=midCherry で「こおりを狙え」を見る)
+        if (q.get('bonusrole')) {
+            const off = machine.on(e => {
+                if (e.type !== EVENTS.BONUS_START) return;
+                d.setNextRole(q.get('bonusrole'));
+                off();
+            });
+        }
         if (q.get('auto')) setTimeout(() => game.setAuto(true), 300);
     }
 

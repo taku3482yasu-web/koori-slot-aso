@@ -7,12 +7,25 @@
 // 画面に何を出すかの状態は view にまとめ、draw(ctx, now) で毎フレーム描く。
 // =====================================================================
 
-import { EVENTS as E } from '../../logic/index.js';
+import { EVENTS as E, windowAt } from '../../logic/index.js';
 import { W, H, haze, rect, text, rainbow } from './kit.js';
 import {
-    TEAMS, drawAt, drawBattle, drawBonus, drawCutin, drawDirect, drawElevator, drawFlash, drawFloor, drawHeaven,
+    TEAMS, drawAt, drawBattle, drawCutin, drawDirect, drawElevator, drawFlash, drawFloor, drawHeaven,
     drawMiddle, drawNavi, drawStandby, drawTenjo
 } from './scenes.js';
+import { END_MS, ENTRY_MS, KAKUTEI_MS, drawAtKakutei, drawBonusEnd, drawBonusScreen, drawNerae } from './bonus.js';
+import { BIG_CARDS, EPISODES, REG_CARDS } from './bonusStory.js';
+
+// エピソードBIG は引くたびに次の話へ進む (このブラウザに覚えておく。覚えられないときは毎回1話から)
+function nextEpisode() {
+    let n = 0;
+    try { n = Number(localStorage.getItem('koori-slot-episode')) || 0; } catch (e) { /* 保存できない環境 */ }
+    try { localStorage.setItem('koori-slot-episode', String((n + 1) % EPISODES.length)); } catch (e) { /* 無視 */ }
+    return n % EPISODES.length;
+}
+// BIG・REG の解説は、前のボーナスの続きのカードから出す
+const nextCard = { big: 0, reg: 0 };
+const REEL_SETTLE_MS = 180;   // 停止ボタンを押してから、リールが止まって見えるまで
 
 const BOSS_NAMES = { 22: 'ダイシ', 33: 'ズミタニ', 44: 'ルナヤ', 55: 'ノゾエマ' };
 
@@ -35,6 +48,9 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         battle: null,
         standby: null,
         bonus: null,
+        nerae: null,       // 「こおりを狙え」のゲーム: { color, win, stops, order, phase, endAt }
+        kakutei: null,     // AT確定 (こおりくん揃い): { since, label }
+        bonusEnd: null,    // ボーナス終了の画面: { bonus, payout, at, stock, since }
         at: null,
         direct: null,
         tenjo: null,
@@ -61,12 +77,53 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         changed();
     }
 
+    // ----- 「こおりを狙え」(画面設計書 4-3) -----
+    // 押し順で確定がわかるタイミングが変わる (仕様書): 中押しは中リールにこおりくんが止まった時点 (1確)、
+    // はさみ押しは左右でテンパイした時点 (2確)、順押しは第3停止まで引っ張る。
+    // ガセのときは、内部処理が中押しで中リールにこおりくんを止めず、はさみ押しでテンパイさせない
+    function neraeStop(reel, top) {
+        const n = v.nerae;
+        n.order.push(reel);
+        n.stops[reel] = windowAt(reel, top)[1] === 'koori';
+        if (n.phase !== 'aim' && n.phase !== 'tenpai') return;
+        const [first, second] = n.order;
+        const kooriAll = n.order.every(r => n.stops[r]);
+        if (n.order.length === 1 && first === 1 && kooriAll) return revealKoori();
+        if (n.order.length === 2 && first !== 1 && second !== 1 && kooriAll) return revealKoori();
+        if (n.order.length === 2 && kooriAll) {
+            n.phase = 'tenpai';
+            sound.play('tenpai');
+            setButton('red', { pop: true });
+        }
+    }
+
+    function flushNerae(all = false) {
+        const n = v.nerae;
+        while (n && n.pending.length && (all || n.pending[0].at <= now)) {
+            const { reel, top } = n.pending.shift();
+            neraeStop(reel, top);
+        }
+    }
+
+    function revealKoori() {
+        v.nerae.phase = 'hit';
+        if (v.bonus) v.bonus.at = true;
+        v.kakutei = { since: now, label: atLabel() };
+        sound.play('kooriAlign');
+        after(250, () => sound.play('atKakutei'));
+        setButton('rainbow', { pop: true });
+    }
+
+    // AT 中のボーナスでは、こおりくん揃いは特化ゾーン確定の告知 (仕様書)
+    const atLabel = () => (v.at ? '特化ゾーン確定' : 'AT確定');
+
     // ----- イベントごとの見せ方 -----
     const handlers = {
         [E.LEVER]() {
             sound.play('lever');
             v.lastPayout = 0;
             v.battle = null;
+            v.nerae = null;
             if (!v.direct) setButton('white', { lit: false });
             changed();
         },
@@ -94,8 +151,14 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             sound.play('noise');
         },
 
-        [E.REEL_STOP]() {
+        [E.REEL_STOP](e) {
             sound.play('stop');
+            // 第1・第2停止のイベントは押した瞬間に来るので、リールが止まって見えてから判定する。
+            // 第3停止は止まりきってから来るので、残っている分もまとめて止めた順に判定する
+            if (v.nerae) {
+                v.nerae.pending.push({ reel: e.reel, top: e.top, at: now + REEL_SETTLE_MS });
+                flushNerae(e.order === 3);
+            }
         },
 
         [E.GAME_END](e) {
@@ -107,6 +170,20 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             if (e.payout) sound.play('payout');
             else if (e.win === 'replay') sound.play('replay');
             changed();
+
+            // 「こおりを狙え」の結果: そろったら AT確定 を見せきるまで待つ。そろわなければガセ
+            if (v.nerae) {
+                if (e.win === 'koori' && v.nerae.phase !== 'hit') revealKoori();
+                if (v.nerae.phase === 'hit') {
+                    wait(Math.max(0, KAKUTEI_MS - (now - v.kakutei.since)), () => { v.kakutei = null; });
+                } else {
+                    v.nerae.phase = 'miss';
+                    v.nerae.endAt = now;
+                    sound.play('lose');
+                    setButton('white', { lit: false });
+                }
+                return;
+            }
 
             // 前兆の最後のバトル: PUSH を待つ
             if (v.battle && v.battle.final) {
@@ -195,25 +272,42 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         [E.BONUS_START](e) {
             v.phase = 'bonus';
             v.standby = null;
-            v.bonus = { bonus: e.bonus, left: e.games, payout: 0 };
-            setButton('white', { lit: false });
+            const cards = e.bonus === 'big' ? BIG_CARDS : REG_CARDS;
+            const cardStart = e.bonus === 'epbig' ? 0 : nextCard[e.bonus] % cards.length;
+            // 解説は 1G に約1枚進むとして、次のボーナスはその続きから
+            if (e.bonus !== 'epbig') nextCard[e.bonus] = cardStart + Math.ceil(e.games / 3);
+            v.bonus = {
+                bonus: e.bonus, games: e.games, left: e.games, payout: 0, since: now, cardStart,
+                episode: e.bonus === 'epbig' ? nextEpisode() : 0,
+                // エピソードBIG は AT 確定 (仕様書。AT 中は特化ゾーン確定)
+                at: e.bonus === 'epbig', atLabel: atLabel()
+            };
+            setButton(e.bonus === 'epbig' ? 'rainbow' : 'gold');
             sound.play('fanfare');
+            wait(ENTRY_MS - 400, () => setButton('white', { lit: false }));
         },
 
         [E.BONUS_GAME](e) {
             if (v.bonus) v.bonus.left = e.left;
         },
 
+        // 「こおりを狙え」カットイン。色は内部処理が抽選する (成功率は未定)。win は見せ方には使わず、リールの出目で判定する
         [E.BONUS_NERAE](e) {
-            overlay('cutin', 2000, { color: e.color, line: 'こおりを狙え！' });
+            v.nerae = { color: e.color, win: e.win, stops: [null, null, null], order: [], pending: [], phase: 'aim', endAt: 0 };
+            overlay('cutin', 1300, { color: e.color, line: 'こおりを狙え！' });   // 停止ボタンを押す前に抜ける長さ
             sound.play('cutin');
+            if (e.color === 'gold' || e.color === 'rainbow') setButton(e.color, { pop: e.color === 'rainbow' });
         },
 
         [E.BONUS_END](e) {
-            v.banner = { text: `BONUS 終了  獲得 ${v.bonus ? v.bonus.payout : 0}枚`, since: now };
+            const b = v.bonus;
+            v.bonusEnd = { bonus: e.bonus, payout: b ? b.payout : 0, at: e.at, stock: e.stock, since: now };
             v.bonus = null;
+            v.nerae = null;
             if (!e.at && !e.stock) v.phase = 'normal';
-            wait(1500, () => { v.banner = null; });
+            sound.play(e.stock || e.at ? 'fanfare' : 'bonusEnd');
+            if (e.stock) setButton('gold');
+            wait(END_MS, () => { v.bonusEnd = null; });
         },
 
         [E.AT_START](e) {
@@ -270,6 +364,9 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
     }
 
     function bgmFor() {
+        if (v.bonusEnd) return v.bonusEnd.at || v.bonusEnd.stock ? 'bonus' : null;
+        // 画面設計書 7-2: BIG 豪華な曲 / REG 短い明るい曲 / エピソードBIG しっとりした曲
+        if (v.phase === 'bonus' && v.bonus) return { big: 'bonus', reg: 'reg', epbig: 'epbig' }[v.bonus.bonus];
         if (v.phase === 'bonus' || v.phase === 'standby') return 'bonus';
         if (v.phase === 'at') return 'at';
         if (v.zencho) return 'zencho';
@@ -293,6 +390,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             if (then) then();
         }
         if (hold && hold.push && t >= hold.timeout) revealBattle();
+        flushNerae();
         if (!hold && queue.length) pump();
         v.overlays = v.overlays.filter(o => o.until > t);
         if (v.navi && v.navi.until < t) v.navi = null;
@@ -307,7 +405,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         ctx.clip();
         // 場面
         if (v.phase === 'standby' && v.standby) drawStandby(ctx, t, v.standby);
-        else if (v.phase === 'bonus' && v.bonus) drawBonus(ctx, t, v.bonus);
+        else if (v.phase === 'bonus' && v.bonus) drawBonusScreen(ctx, t, v.bonus);
         else if (v.phase === 'at' && v.at) drawAt(ctx, t, v.at);
         else if (v.battle && v.zencho) drawBattle(ctx, t, v.zencho, v.battle);
         else if (v.zencho && t >= v.zencho.since - 650) drawMiddle(ctx, t, v.zencho);
@@ -324,6 +422,10 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             else if (o.kind === 'heaven') drawHeaven(ctx, since, o.who);
             else if (o.kind === 'flash') drawFlash(ctx, since, o.level);
         });
+        // 「こおりを狙え」はカットインが抜けてから
+        if (v.nerae && !v.overlays.some(o => o.kind === 'cutin')) drawNerae(ctx, t, v.nerae);
+        if (v.kakutei) drawAtKakutei(ctx, t, t - v.kakutei.since, v.kakutei.label);
+        if (v.bonusEnd) drawBonusEnd(ctx, t, t - v.bonusEnd.since, v.bonusEnd);
         if (v.tenjo) drawTenjo(ctx, t, t - v.tenjo.since, v.tenjo.who);
         if (v.direct) drawDirect(ctx, t, t - v.direct.since, v.direct.phase);
         if (v.banner) {

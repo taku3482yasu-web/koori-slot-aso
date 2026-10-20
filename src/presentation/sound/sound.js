@@ -89,7 +89,17 @@ const SOUNDS = {
     noise: () => noise(0, 1.2, 0.06),
     blackout: () => tone(110, 0, 0.8, { slideTo: 40, volume: 0.1, type: 'sawtooth' }),
     fanfare: () => [784, 784, 784, 1047, 988, 1047, 1319].forEach((f, i) => tone(f, i * 0.12, 0.22, { volume: 0.08 })),
-    count: () => tone(880, 0, 0.12, { volume: 0.06 })
+    count: () => tone(880, 0, 0.12, { volume: 0.06 }),
+    // 「こおりを狙え」: テンパイ (あおる音) / こおりくん揃い / AT確定 (専用の当たり音。声の代わり。画面設計書 7-2)
+    tenpai: () => [0, 0.16, 0.32].forEach(s => tone(880, s, 0.12, { slideTo: 1760, volume: 0.06, type: 'sawtooth' })),
+    kooriAlign: () => { noise(0, 0.25, 0.12); tone(2093, 0, 0.5, { volume: 0.09 }); tone(3136, 0.05, 0.6, { volume: 0.06, type: 'triangle' }); },
+    atKakutei: () => {
+        [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, i * 0.07, 0.25, { volume: 0.08 }));
+        [1568, 2093, 2637, 3136].forEach((f, i) => tone(f, 0.45 + i * 0.07, 0.4, { volume: 0.07, type: 'triangle' }));
+        tone(523, 0.45, 1.2, { volume: 0.06, type: 'sawtooth' });
+    },
+    // ボーナス終了 (AT にも 1G連 にもならないとき)
+    bonusEnd: () => [1047, 784, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.22, { volume: 0.06, type: 'triangle' }))
 };
 
 function play(name) {

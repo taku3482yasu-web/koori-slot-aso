@@ -319,47 +319,7 @@ export function drawDirect(ctx, t, since, phase) {
     if (since > 300) text(ctx, 'こおりいきていける！', W / 2, 26, { size: 20, color: rainbow(ctx, 60, 0, 260, 0), lw: 5 });
 }
 
-// ----- ボーナス・AT (仮。次の段階で作る) -----
-const BIG_TALKS = [
-    ['koori', 'こおりくん', ['氷のキューブの体を持つ主人公。', 'おにおにに借りたお金を返すため、', 'ASO摩天楼の財宝をねらう。']],
-    ['onioni', 'おにおに', ['こおりくんにお金を貸している赤鬼。', '取り立てのため、こおりくんに', 'ついてきた。']],
-    ['furukawa', 'ふるカワ', ['ステージのナビ役。', '摩天楼のことなら何でも知っている。', '']],
-    ['maou', '大魔王ASO', ['ASO摩天楼の56階にいる魔王。', '大量の金銀財宝を持っている', 'とうわさされている。']]
-];
-
-export function drawBonus(ctx, t, bonus) {
-    const isBig = bonus.bonus !== 'reg';
-    if (bonus.bonus === 'epbig') {
-        rect(ctx, 0, 0, W, H, vgrad(ctx, 0, H, ['#3a1a4a', '#ff7a4a', '#ffd08a']));
-        tower(ctx, 250, 128, 120, '#0d1117');
-        rect(ctx, 0, 118, W, 62, '#2a1a20');
-        ch(ctx, 'tomoishi', 60, 120, { scale: 2.6, frame: frameOf(t, 900) });
-        ch(ctx, 'koori', 110, 120, { scale: 2.6, frame: frameOf(t, 500) });
-        ch(ctx, 'onioni', 165, 120, { scale: 1.6, flip: true });
-        roundRect(ctx, 10, 126, 300, 48, 4, 'rgba(0,0,0,.75)', '#ffd08a');
-        text(ctx, 'おにおに', 20, 138, { size: 10, align: 'left', color: '#ff8a7a', stroke: null, font: BODY });
-        text(ctx, '「こおり、今月の返済はまだか？」', 20, 156, { size: 12, align: 'left', color: '#ffffff', stroke: null, font: BODY });
-        text(ctx, 'EPISODE BIG', 8, 12, { size: 10, align: 'left', color: '#ffffff', lw: 3 });
-    } else {
-        rect(ctx, 0, 0, W, H, isBig ? vgrad(ctx, 0, H, ['#fff2a0', '#e8b020', '#8a5a00']) : vgrad(ctx, 0, H, ['#ffffff', '#b8c0cc', '#5a6270']));
-        ctx.save();
-        ctx.translate(W / 2, 200);
-        ctx.rotate(t / 4000);
-        ctx.translate(-W / 2, -200);
-        rays(ctx, W / 2, 200, ['#ffffff', 'rgba(255,255,255,0)'], 28, 0.3);
-        ctx.restore();
-        text(ctx, isBig ? 'BIG BONUS' : 'REGULAR BONUS', W / 2, 18, { size: 18, color: '#ffffff', lw: 5, stroke: isBig ? '#8a3a00' : '#3a4250' });
-        const [id, name, lines] = BIG_TALKS[Math.floor(t / 5000) % BIG_TALKS.length];
-        roundRect(ctx, 20, 36, 280, 110, 6, isBig ? 'rgba(30,16,0,.78)' : 'rgba(20,24,30,.78)', isBig ? '#ffe680' : '#e0e6ee');
-        ch(ctx, id, 70, 132, { scale: id === 'maou' ? 1.2 : id === 'koori' ? 4 : 2.6, frame: frameOf(t, 500) });
-        text(ctx, 'キャラ解説', 120, 52, { size: 10, align: 'left', color: isBig ? '#ffd23a' : '#c8d4e0', stroke: null, font: BODY });
-        text(ctx, name, 120, 70, { size: 16, align: 'left', color: '#ffffff', stroke: null });
-        lines.forEach((l, i) => text(ctx, l, 120, 92 + i * 15, { size: 10, align: 'left', color: '#f0e6d0', stroke: null, font: BODY }));
-    }
-    text(ctx, `残り ${bonus.left}G`, W - 12, 166, { size: 12, align: 'right', color: '#ffffff', lw: 3, stroke: '#3a2000' });
-    text(ctx, `獲得 ${bonus.payout}枚`, 12, 166, { size: 12, align: 'left', color: '#ffffff', lw: 3, stroke: '#3a2000' });
-}
-
+// ----- AT (仮。次の段階で作る。ボーナスは bonus.js) -----
 export function drawAt(ctx, t, at) {
     atBackground(ctx);
     // 流れる線
