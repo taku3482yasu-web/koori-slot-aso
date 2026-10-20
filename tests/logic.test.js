@@ -96,3 +96,32 @@ test('AT 直撃 (デバッグ) で AT が始まる', () => {
     assert.equal(start.cause, 'direct');
     assert.equal(m.snapshot().phase, 'at');
 });
+
+test('特化ゾーン (仮組): ストック → 始まり → 3G ずつのセット → 終わり。上乗せは AT の残りに足され、AT のゲーム数は減らない', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+        const m = createMachine({ seed });
+        const rng = createRng(seed);
+        const log = [];
+        m.on(e => { if (e.type.startsWith('tokka:') || e.type === EVENTS.AT_GAME) log.push(e); });
+        m.debug.direct();
+        play(m, rng);
+        m.debug.tokka();
+        play(m, rng);   // このゲームの終わりで告知して、次から特化ゾーン
+        let guard = 0;
+        while (!log.some(e => e.type === EVENTS.TOKKA_END) && guard++ < 500) play(m, rng);
+        const types = log.map(e => e.type);
+        assert.ok(types.indexOf(EVENTS.TOKKA_STOCK) < types.indexOf(EVENTS.TOKKA_START), 'ストックのあとに始まる');
+        const start = types.indexOf(EVENTS.TOKKA_START);
+        const end = types.indexOf(EVENTS.TOKKA_END);
+        const inside = log.slice(start + 1, end);
+        assert.ok(!inside.some(e => e.type === EVENTS.AT_GAME), '特化ゾーンのあいだに AT のゲームがある');
+        const games = inside.filter(e => e.type === EVENTS.TOKKA_GAME);
+        const sets = inside.filter(e => e.type === EVENTS.TOKKA_SET);
+        assert.equal(games.length, sets.length * 3, '1セット3G');
+        assert.ok(games.every(g => g.add >= 5), '毎ゲーム 5G 以上');
+        assert.ok(sets.slice(0, -1).every(x => x.cont) && !sets[sets.length - 1].cont, '最後のセットだけ続かない');
+        const total = games.reduce((a, g) => a + g.add, 0);
+        assert.equal(log[end].total, total);
+        assert.equal(log[end].left, m.snapshot().at ? m.snapshot().at.left : log[end].left);
+    }
+});

@@ -83,6 +83,7 @@ export default function DebugPanel({ game }) {
                 <button type="button" onClick={() => d.bonus('big')}>BIG</button>
                 <button type="button" onClick={() => d.bonus('reg')}>REG</button>
                 <button type="button" onClick={() => d.bonus('epbig')}>エピソードBIG</button>
+                <button type="button" onClick={() => d.tokka && d.tokka()}>特化ゾーン（AT 中）</button>
             </div>
 
             <h3>オート</h3>

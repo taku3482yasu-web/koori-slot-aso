@@ -30,7 +30,12 @@ function Lcd({ game }) {
             window.removeEventListener('resize', fit);
         };
     }, [game]);
-    return <canvas ref={ref} className="lcd" aria-label="液晶" />;
+    // タップした位置 (特化ゾーンのパターンを選ぶとき)
+    const onPointerDown = e => {
+        const r = ref.current.getBoundingClientRect();
+        game.tapLcd((e.clientX - r.left) / r.width);
+    };
+    return <canvas ref={ref} className="lcd" aria-label="液晶" onPointerDown={onPointerDown} />;
 }
 
 function Reels({ game, nav }) {

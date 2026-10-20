@@ -35,7 +35,14 @@ export const EVENTS = {
     AT_START: 'at:start',         // { games, cause }  cause: 'bonus' | 'direct'
     AT_GAME: 'at:game',           // { left, nav }  nav: 押し順 [リール番号, …] (ナビのないゲームは null)
     AT_ADD: 'at:add',             // { games, left, attacker, enemy }  上乗せ。attacker: 'yasu' | 'tamu' | 'dake' | 'onioni' | 'sword' | 'hammer' | 'kill' / enemy: キャラの id
-    AT_END: 'at:end'              // { games, payout }
+    AT_END: 'at:end',             // { games, payout }
+
+    // ----- 上乗せ特化ゾーン (演出側の提案。docs/events.md 5-5。内部処理の担当の確認待ち) -----
+    TOKKA_STOCK: 'tokka:stock',   // { stock }  特化ゾーンに当たった (当たったゲームの終わり)
+    TOKKA_START: 'tokka:start',   // { stock }  特化ゾーンが始まる (次のレバーから)
+    TOKKA_GAME: 'tokka:game',     // { set, game, add, guarantee }  特化ゾーンの1ゲーム (レバーのとき)
+    TOKKA_SET: 'tokka:set',       // { set, cont, revive }  セットの終わり
+    TOKKA_END: 'tokka:end'        // { total, sets, left }  特化ゾーンの終わり
 };
 
 // notice の kind (演出の種類。期待度に関わるので内部処理が抽選する)

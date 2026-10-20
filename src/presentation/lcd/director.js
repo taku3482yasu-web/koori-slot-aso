@@ -15,12 +15,24 @@ import {
 } from './scenes.js';
 import { END_MS, ENTRY_MS, KAKUTEI_MS, drawAtKakutei, drawBonusEnd, drawBonusScreen, drawNerae } from './bonus.js';
 import { BIG_CARDS, EPISODES, REG_CARDS } from './bonusStory.js';
+import {
+    INTRO_MS, OPEN_STEP_MS, RESULT_MS, STOCK_MS, TOKKA_END_MS, drawTokka, drawTokkaEnd, drawTokkaIntro, drawTokkaSelect, drawTokkaStock
+} from './tokka.js';
 import { ATTACKS, ATTACK_MS, COUNT_MS, END_MS as AT_END_MS, START_MS, drawAtCount, drawAtEnd, drawAtMain, drawAtStart, drawAttack } from './at.js';
 
 // 残りゲーム数を大きく出すとき (画面設計書 5-1 の案)
 const COUNT_AT = [10, 5, 3, 2, 1];
 const PUSH_WAIT_MS = 5000;     // 武器の攻撃で PUSH を待つ時間 (押さなくても進む)
 const LONG_PRESS_MS = 900;     // コオリハンマーの長押しでゲージがたまる時間
+const SELECT_MS = 10000;       // 特化ゾーンのパターンを選ぶ時間 (たったら、そのとき選んでいるほうで始める。画面設計書 6章の案)
+
+// 特化ゾーンのパターンは、前に選んだほうを最初に選んでおく (このブラウザに覚えておく)
+function savedPattern() {
+    try { return localStorage.getItem('koori-slot-tokka') === 'daichoen' ? 'daichoen' : 'maou'; } catch (e) { return 'maou'; }
+}
+function savePattern(id) {
+    try { localStorage.setItem('koori-slot-tokka', id); } catch (e) { /* 保存できない環境 */ }
+}
 
 // エピソードBIG は引くたびに次の話へ進む (このブラウザに覚えておく。覚えられないときは毎回1話から)
 function nextEpisode() {
@@ -62,6 +74,9 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         attack: null,      // 上乗せの攻撃: { attacker, enemy, games, left, phase, since, gauge, pushes }
         pendingAdd: null,  // レバーで届いた上乗せ。リールが止まってから攻撃を見せる
         atEnd: null,       // AT 終了の画面
+        tokka: null,       // 特化ゾーン: { pattern, choice, set, games, gained, guarantee, phase, since, shownTotal, pop, kakuteiAt, result, pending }
+        tokkaFx: null,     // 特化ゾーン当選のフリーズ風の告知: { since, stock }
+        tokkaEnd: null,    // 特化ゾーン終了の画面
         at: null,
         direct: null,
         tenjo: null,
@@ -74,7 +89,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         lastPayout: 0
     };
     const queue = [];
-    let hold = null;      // { reels } | { until, then } | { push: 'battle' | 'attack', timeout }
+    let hold = null;      // { reels } | { until, then } | { push: 'battle' | 'attack' | 'select', timeout }
     let pressing = false; // PUSH ボタンを押しているあいだ (コオリハンマーの長押し)
     let now = performance.now();
     const timers = [];
@@ -181,6 +196,64 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         });
     }
 
+    // ----- 上乗せ特化ゾーン -----
+    function confirmTokka() {
+        const z = v.tokka;
+        hold = null;
+        z.pattern = z.choice;
+        savePattern(z.pattern);
+        z.phase = 'intro';
+        z.since = now;
+        sound.play('fanfare');
+        wait(INTRO_MS, () => {
+            z.phase = 'play';
+            setButton('white', { lit: false });
+        });
+    }
+
+    // 1ゲームの結果 (リールが止まってから)。こおり大腸炎は 1G ごとに上乗せを出す。魔王の褒美は宝箱を置くだけ
+    function showTokkaGame(e) {
+        const z = v.tokka;
+        const gainedNow = e.guarantee > z.guarantee;
+        z.games.push({ add: e.add, guarantee: e.guarantee });
+        z.guarantee = e.guarantee;
+        if (gainedNow) z.gained = true;
+        if (z.pattern === 'maou') {
+            sound.play('push');
+            return;
+        }
+        z.pop = { add: e.add, at: now };
+        z.shownTotal += e.add;
+        sound.play(e.add >= 100 ? 'addBig' : e.add >= 30 ? 'addMid' : 'addSmall');
+        if (gainedNow) {
+            // こおりくんが虹色に光り、まわりの炎が虹色になって「確定」
+            z.kakuteiAt = now;
+            after(150, () => sound.play('kakutei'));
+            setButton('rainbow', { pop: true });
+            wait(1300, () => setButton('white', { lit: false }));
+        }
+    }
+
+    // セットの結果: 継続！ / 復活！ (継続率テーブルで続いた) / 終了…
+    function showTokkaResult(e) {
+        const z = v.tokka;
+        z.phase = 'result';
+        z.result = e.revive ? 'revive' : e.cont ? 'cont' : 'end';
+        z.since = now;
+        if (e.revive) after(500, () => sound.play('flashRainbow'));
+        else sound.play(e.cont ? 'win' : 'lose');
+        wait(RESULT_MS + (e.revive ? 500 : 0), () => {
+            if (!e.cont) return;
+            // 次のセットへ (継続確定は1つ使う)
+            if (z.guarantee > 0 && !e.revive) z.guarantee--;
+            z.set = e.set + 1;
+            z.games = [];
+            z.gained = false;
+            z.phase = 'play';
+            z.result = null;
+        });
+    }
+
     // AT 中のボーナスでは、こおりくん揃いは特化ゾーン確定の告知 (仕様書)
     const atLabel = () => (v.at ? '特化ゾーン確定' : 'AT確定');
 
@@ -257,6 +330,10 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
                 v.nav = null;
                 v.at.nav = null;
                 changed();
+                if (v.tokka && v.tokka.pending) {
+                    showTokkaGame(v.tokka.pending);
+                    v.tokka.pending = null;
+                }
                 if (v.pendingAdd) startAttack(v.pendingAdd);
                 v.pendingAdd = null;
                 return;
@@ -417,6 +494,63 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             v.pendingAdd = { ...e };
         },
 
+        // ----- 上乗せ特化ゾーン (画面設計書 6章。イベントは docs/events.md 5-5 の案) -----
+        // 当選: すぐにフリーズ風の「特化ゾーン ストック！」(仕様書: 当選ゲームで即座にストックを告知)
+        [E.TOKKA_STOCK](e) {
+            v.tokkaFx = { since: now, stock: e.stock };
+            after(450, () => sound.play('kakutei'));
+            setButton('rainbow', { pop: true });
+            wait(STOCK_MS, () => {
+                v.tokkaFx = null;
+                setButton('white', { lit: false });
+            });
+        },
+
+        // 始まり: パターンを選ぶ画面 (停止ボタンの左・右か画面のタップで選んで、PUSH で決める。10秒で自動)
+        [E.TOKKA_START]() {
+            v.tokka = {
+                pattern: null, choice: savedPattern(), set: 1, games: [], gained: false, guarantee: 0,
+                phase: 'select', since: now, shownTotal: 0, pop: null, kakuteiAt: 0, result: null, pending: null
+            };
+            setButton('gold', { pop: true });
+            sound.play('cutin');
+            hold = { push: 'select', timeout: now + SELECT_MS };
+        },
+
+        [E.TOKKA_GAME](e) {
+            if (v.tokka) v.tokka.pending = { ...e };
+        },
+
+        [E.TOKKA_SET](e) {
+            const z = v.tokka;
+            if (!z) return;
+            if (z.pattern !== 'maou') return showTokkaResult(e);
+            // 魔王の褒美: 宝箱を1つずつ開けて、まとめて結果を出す。継続確定が入っていたら虹フラッシュ
+            z.phase = 'open';
+            z.since = now;
+            z.games.forEach((g, i) => after(i * OPEN_STEP_MS, () => {
+                sound.play(g.add >= 100 ? 'addBig' : g.add >= 30 ? 'addMid' : 'addSmall');
+                z.shownTotal += g.add;
+            }));
+            if (z.gained) after(3 * OPEN_STEP_MS, () => sound.play('flashRainbow'));
+            wait(3 * OPEN_STEP_MS + (z.gained ? 1100 : 300), () => showTokkaResult(e));
+        },
+
+        [E.TOKKA_END](e) {
+            const z = v.tokka;
+            v.tokkaEnd = { pattern: z ? z.pattern || 'maou' : 'maou', total: e.total, sets: e.sets, left: e.left, since: now };
+            if (v.at) {
+                v.at.left = e.left;
+                v.at.addTotal += e.total;
+                v.at.best = Math.max(v.at.best, e.total);
+            }
+            sound.play('addBig');
+            wait(TOKKA_END_MS, () => {
+                v.tokkaEnd = null;
+                if (v.tokka === z) v.tokka = null;
+            });
+        },
+
         [E.AT_END](e) {
             const a = v.at || { adds: 0, addTotal: 0, best: 0 };
             v.atEnd = { games: e.games, payout: e.payout, adds: a.adds, addTotal: a.addTotal, best: a.best, since: now };
@@ -457,6 +591,8 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         if (v.phase === 'bonus' && v.bonus) return { big: 'bonus', reg: 'reg', epbig: 'epbig' }[v.bonus.bonus];
         if (v.phase === 'bonus' || v.phase === 'standby') return 'bonus';
         if (v.atEnd) return 'atEnd';
+        // 画面設計書 7-2: 魔王の褒美 不気味で豪華な曲 / こおり大腸炎 ドタバタした曲
+        if (v.tokka && v.tokka.pattern && !v.tokkaEnd) return v.tokka.pattern === 'maou' ? 'tokkaMaou' : 'tokkaDaichoen';
         if (v.phase === 'at') return 'at';
         if (v.zencho) return 'zencho';
         if (v.stage.state === 'super') return 'super';
@@ -480,6 +616,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         }
         if (hold && hold.push && t >= hold.timeout) {
             if (hold.push === 'battle') revealBattle();
+            else if (hold.push === 'select') confirmTokka();
             else hitAttack();
         }
         // コオリハンマー: 押しているあいだゲージがたまる
@@ -506,7 +643,11 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         if (v.phase === 'standby' && v.standby) drawStandby(ctx, t, v.standby);
         else if (v.phase === 'bonus' && v.bonus) drawBonusScreen(ctx, t, v.bonus);
         else if (v.phase === 'at' && v.at) {
-            if (v.attack) drawAttack(ctx, t, v.attack);
+            const z = v.tokka;
+            if (z && z.phase === 'select') drawTokkaSelect(ctx, t, z.choice, hold && hold.push === 'select' ? hold.timeout - t : 0);
+            else if (z && z.phase === 'intro') drawTokkaIntro(ctx, t, t - z.since, z.pattern);
+            else if (z && z.pattern) drawTokka(ctx, t, z);
+            else if (v.attack) drawAttack(ctx, t, v.attack);
             else drawAtMain(ctx, t, v.at);
             if (v.atCount && !v.attack) drawAtCount(ctx, t, t - v.atCount.since, v.atCount.left);
             if (v.atStart) drawAtStart(ctx, t, t - v.atStart.since, v.atStart.games);
@@ -530,6 +671,8 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         if (v.nerae && !v.overlays.some(o => o.kind === 'cutin')) drawNerae(ctx, t, v.nerae);
         if (v.kakutei) drawAtKakutei(ctx, t, t - v.kakutei.since, v.kakutei.label);
         if (v.bonusEnd) drawBonusEnd(ctx, t, t - v.bonusEnd.since, v.bonusEnd);
+        if (v.tokkaEnd) drawTokkaEnd(ctx, t, t - v.tokkaEnd.since, v.tokkaEnd);
+        if (v.tokkaFx) drawTokkaStock(ctx, t, t - v.tokkaFx.since, v.tokkaFx.stock);
         if (v.atEnd) drawAtEnd(ctx, t, t - v.atEnd.since, v.atEnd);
         if (v.tenjo) drawTenjo(ctx, t, t - v.tenjo.since, v.tenjo.who);
         if (v.direct) drawDirect(ctx, t, t - v.direct.since, v.direct.phase);
@@ -541,7 +684,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
     }
 
     function snapshot() {
-        return { button: v.button, nav: v.nav, credit: v.credit, lastPayout: v.lastPayout, phase: v.phase, waitingPush: Boolean(hold && hold.push) };
+        return { button: v.button, nav: v.nav, credit: v.credit, lastPayout: v.lastPayout, phase: v.phase, waitingPush: Boolean(hold && hold.push), selecting: Boolean(hold && hold.push === 'select') };
     }
 
     return {
@@ -563,6 +706,11 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         // PUSH ボタン
         push() {
             pressing = true;
+            if (hold && hold.push === 'select') {
+                sound.play('push');
+                confirmTokka();
+                return true;
+            }
             if (hold && hold.push === 'attack') {
                 attackPush();
                 return true;
@@ -574,6 +722,14 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             }
             sound.play('push');
             return false;
+        },
+        // 特化ゾーンのパターンを選ぶ。side: 'left' (魔王の褒美) / 'right' (こおり大腸炎)
+        select(side) {
+            if (!(hold && hold.push === 'select')) return false;
+            const next = side === 'left' ? 'maou' : 'daichoen';
+            if (v.tokka.choice !== next) sound.play('stop');
+            v.tokka.choice = next;
+            return true;
         },
         // PUSH ボタンを離した (コオリハンマーの長押しを止める)
         release() {

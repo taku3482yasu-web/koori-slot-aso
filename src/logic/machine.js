@@ -39,6 +39,9 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         stock: [],
         bonus: null,
         at: null,
+        tokka: null,        // 特化ゾーンの途中: { set, game, hit, guarantee, rate, total }
+        tokkaStock: 0,      // 持っている特化ゾーンの数
+        tokkaWon: false,    // このゲームで特化ゾーンに当たった (ゲームの終わりで告知する)
         floor: 1,
         place: 'floor',
         // 1ゲームの途中の情報
@@ -307,6 +310,11 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         const nav = role === 'bell' ? rng.pick([[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]) : null;
         emit(E.AT_GAME, { left: a.left, nav });
         if (RARE.includes(role)) {
+            // 特化ゾーン (仕様書: レア役はボーナス・特化ゾーン・直接上乗せのどれか1つ。仮組はボーナスなし)
+            if (rng.chance((config.tokka.rate[role] || 0) / 100)) {
+                s.tokkaWon = true;
+                return;
+            }
             const add = Number(rng.weighted(config.at.addTable));
             a.left += add;
             a.total += add;
@@ -324,11 +332,72 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
     }
 
     function finishAt() {
+        // 特化ゾーンのストックがあれば、次のゲームから特化ゾーン (AT のゲーム数が 0 でも)
+        if (s.tokkaStock > 0) {
+            startTokka();
+            return;
+        }
         if (s.at.left > 0) return;
         emit(E.AT_END, { games: s.at.total, payout: s.at.payout });
         s.at = null;
         s.phase = 'normal';
         updateStage();
+    }
+
+    // ----- 上乗せ特化ゾーン (仕様書。仮組は最小限: ボーナスのストックなし・ステートは見ない) -----
+    function startTokka() {
+        s.tokkaStock--;
+        s.tokka = { set: 1, game: 0, hit: false, guarantee: 0, rate: Number(rng.weighted(config.tokka.contTable)), total: 0 };
+        emit(E.TOKKA_START, { stock: s.tokkaStock });
+    }
+
+    function tokkaRole() {
+        const r = config.tokka.roles;
+        if (rng.chance(1 / r.rare)) return rng.pick(RARE);
+        if (rng.chance(1 / r.replay)) return 'replay';
+        if (rng.chance(1 / r.bell)) return 'bell';
+        return 'none';
+    }
+
+    function tokkaGame(role) {
+        const t = s.tokka;
+        const cfg = config.tokka;
+        t.game++;
+        const add = Number(rng.weighted(cfg.addTable[role] || cfg.addTable.none));
+        t.total += add;
+        s.at.left += add;
+        s.at.total += add;
+        if (role === 'replay' || RARE.includes(role)) t.hit = true;
+        t.guarantee += cfg.guarantee[role] || 0;
+        // 特化ゾーン中も、レア役で特化ゾーンを抽選する (終わったら続けて始める)
+        if (RARE.includes(role) && rng.chance((cfg.rate[role] || 0) / 100)) s.tokkaWon = true;
+        emit(E.TOKKA_GAME, { set: t.set, game: t.game, add, guarantee: t.guarantee });
+    }
+
+    // セットの終わり: 継続確定 → リプレイ以上を引いた → 継続率テーブル (復活) の順に見る
+    function finishTokkaGame() {
+        const t = s.tokka;
+        if (t.game < config.tokka.setGames) return;
+        let cont = false;
+        let revive = false;
+        if (t.guarantee > 0) {
+            t.guarantee--;
+            cont = true;
+        } else if (t.hit) cont = true;
+        else if (rng.chance(t.rate / 100)) {
+            cont = true;
+            revive = true;
+        }
+        emit(E.TOKKA_SET, { set: t.set, cont, revive });
+        if (cont) {
+            t.set++;
+            t.game = 0;
+            t.hit = false;
+            return;
+        }
+        emit(E.TOKKA_END, { total: t.total, sets: t.set, left: s.at.left });
+        s.tokka = null;
+        if (s.tokkaStock > 0) startTokka();
     }
 
     // ----- 台の窓口 -----
@@ -367,6 +436,9 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                     shape = 'koori';
                 }
                 bonusGame(role);
+            } else if (s.phase === 'at' && s.tokka) {
+                role = s.forcedRole || tokkaRole();
+                tokkaGame(role);
             } else if (s.phase === 'at') {
                 role = s.forcedRole || (rng.chance(1 / config.at.rareRate) ? rng.pick(RARE) : rng.chance(1 / config.at.bellRate) ? 'bell' : 'none');
                 atGame(role);
@@ -418,7 +490,9 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                 plan: { ...s.plan },
                 zencho: s.zencho && { ...s.zencho },
                 stock: s.stock.slice(),
-                floor: s.floor
+                floor: s.floor,
+                tokka: s.tokka && { ...s.tokka },
+                tokkaStock: s.tokkaStock
             }),
             setNextRole: role => { s.forcedRole = role; },
             setState: state => { setState(state); updateStage(); },
@@ -438,7 +512,9 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             },
             direct: () => { s.forcedRole = 'replay'; s.forceDirect = true; },
             bonus: type => { if (s.phase === 'normal' && !s.zencho) winBonus(type); },
-            heaven: who => emit(E.HEAVEN, { who })
+            heaven: who => emit(E.HEAVEN, { who }),
+            // 特化ゾーンをストックする (AT 中だけ。次のゲームの終わりで告知)
+            tokka: () => { if (s.phase === 'at') s.tokkaWon = true; }
         }
     };
 
@@ -460,7 +536,15 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             s.bonus.left = config.bonusGames[s.bonus.type];
             emit(E.BONUS_START, { bonus: s.bonus.type, games: s.bonus.left });
         } else if (s.phase === 'bonus') finishBonus();
-        else if (s.phase === 'at') finishAt();
+        else if (s.phase === 'at') {
+            if (s.tokkaWon) {
+                s.tokkaWon = false;
+                s.tokkaStock++;
+                emit(E.TOKKA_STOCK, { stock: s.tokkaStock });
+            }
+            if (s.tokka) finishTokkaGame();
+            else finishAt();
+        }
         else finishNormal(spin.result);
     }
 }

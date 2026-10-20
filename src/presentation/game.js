@@ -83,6 +83,12 @@ export function createGame({ setting = 1 } = {}) {
     // fromQueue: 覚えておいた操作を実行するとき (順番待ちをしない)
     function stop(reel, fromQueue = false) {
         Sound.unlock();
+        // 特化ゾーンのパターンを選んでいるあいだは、左・右の停止ボタンで選ぶ
+        if (director.snapshot().selecting) {
+            if (reel !== 1) director.select(reel === 0 ? 'left' : 'right');
+            notify();
+            return false;
+        }
         if (stopped[reel]) {
             // 前のレバーを待っているあいだに押されたら、覚えておく
             if (pending.some(p => p.kind === 'lever')) keep({ kind: 'stop', reel });
@@ -127,6 +133,12 @@ export function createGame({ setting = 1 } = {}) {
         notify();
     }
 
+    // 液晶をタップした (x: 左端 0 〜 右端 1)。特化ゾーンのパターンを選ぶときに使う
+    function tapLcd(x) {
+        Sound.unlock();
+        if (director.select(x < 0.5 ? 'left' : 'right')) notify();
+    }
+
     // PUSH ボタンを離した (長押しの演出で使う)
     function release() {
         director.release();
@@ -160,6 +172,15 @@ export function createGame({ setting = 1 } = {}) {
                 off();
             });
         }
+        // 特化ゾーン (例: ?tokka=1 で AT 直撃のあと特化ゾーンをストック)
+        if (q.get('tokka')) {
+            d.direct();
+            const off = machine.on(e => {
+                if (e.type !== EVENTS.AT_START) return;
+                d.tokka();
+                off();
+            });
+        }
         if (q.get('auto')) setTimeout(() => game.setAuto(true), 300);
     }
 
@@ -172,6 +193,7 @@ export function createGame({ setting = 1 } = {}) {
         next,
         push,
         release,
+        tapLcd,
         subscribe(fn) {
             listeners.add(fn);
             return () => listeners.delete(fn);
