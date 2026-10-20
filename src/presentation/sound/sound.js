@@ -1,0 +1,167 @@
+// =====================================================================
+// 効果音と BGM (Web Audio。パチンコ版と同じ作り)
+// ---------------------------------------------------------------------
+// ブラウザは、画面を一度さわる・キーを押すまで音を出せないので、そのときに Sound.unlock() で準備する。
+// 先バレ音はパチンコ版の録音 (public/sounds/heso.m4a の 1.3〜3.5秒、4倍の音量)。AT 直撃は高くして鳴らす。
+// =====================================================================
+
+import { BGM_TRACKS } from './tracks.js';
+
+let ctx = null;
+let master = null;
+let bgmGain = null;
+let voice = null;
+let muted = false;
+try { muted = localStorage.getItem('koori-slot-muted') === '1'; } catch (e) { /* 保存できない環境 */ }
+
+const VOICE = { start: 1.3, end: 3.5, gain: 4 };
+
+function unlock() {
+    if (ctx) {
+        if (ctx.state === 'suspended') ctx.resume();
+        return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = muted ? 0 : 1;
+    master.connect(ctx.destination);
+    bgmGain = ctx.createGain();
+    bgmGain.gain.value = 0.06;
+    bgmGain.connect(master);
+    fetch(`${import.meta.env.BASE_URL}sounds/heso.m4a`)
+        .then(r => r.arrayBuffer())
+        .then(buf => ctx.decodeAudioData(buf))
+        .then(b => { voice = b; })
+        .catch(() => { voice = null; });
+    setInterval(schedule, 25);
+}
+
+// 1つの音: 周波数 freq (Hz)、start 秒後から length 秒。slideTo で音の高さを変える
+function tone(freq, start, length, { type = 'square', volume = 0.08, slideTo = null } = {}) {
+    const t0 = ctx.currentTime + start;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + length);
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + length);
+    osc.connect(gain).connect(master);
+    osc.start(t0);
+    osc.stop(t0 + length + 0.02);
+}
+
+// ザーッという音 (ノイズ)
+function noise(start, length, volume = 0.08) {
+    const t0 = ctx.currentTime + start;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * length), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    src.buffer = buf;
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + length);
+    src.connect(gain).connect(master);
+    src.start(t0);
+}
+
+const SOUNDS = {
+    lever: () => tone(392, 0, 0.08, { volume: 0.05 }),
+    stop: () => tone(660, 0, 0.05, { volume: 0.05 }),
+    bet: () => tone(988, 0, 0.04, { volume: 0.03, type: 'triangle' }),
+    payout: () => [1319, 1568].forEach((f, i) => tone(f, i * 0.05, 0.06, { volume: 0.03 })),
+    replay: () => [784, 1047].forEach((f, i) => tone(f, i * 0.06, 0.08, { volume: 0.04, type: 'triangle' })),
+    flashSmall: () => tone(1760, 0, 0.12, { volume: 0.05, type: 'triangle' }),
+    flashBig: () => { tone(1568, 0, 0.1); tone(2093, 0.1, 0.25); },
+    flashRainbow: () => [1047, 1319, 1568, 2093, 2637].forEach((f, i) => tone(f, i * 0.06, 0.3, { volume: 0.07 })),
+    kakutei: () => { tone(2637, 0, 0.12, { volume: 0.08 }); tone(3136, 0.14, 0.18, { volume: 0.08 }); tone(3520, 0.34, 0.4, { volume: 0.08 }); },
+    cutin: () => tone(330, 0, 0.25, { slideTo: 1320, volume: 0.06, type: 'sawtooth' }),
+    push: () => tone(1568, 0, 0.1, { volume: 0.06 }),
+    clash: () => { noise(0, 0.15, 0.1); tone(220, 0, 0.15, { slideTo: 880, volume: 0.05, type: 'sawtooth' }); },
+    win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.11, 0.2, { volume: 0.08 })),
+    lose: () => [392, 330, 262].forEach((f, i) => tone(f, i * 0.18, 0.25, { volume: 0.06, type: 'triangle' })),
+    elevator: () => [1319, 1047].forEach((f, i) => tone(f, i * 0.3, 0.4, { volume: 0.05, type: 'sine' })),
+    noise: () => noise(0, 1.2, 0.06),
+    blackout: () => tone(110, 0, 0.8, { slideTo: 40, volume: 0.1, type: 'sawtooth' }),
+    fanfare: () => [784, 784, 784, 1047, 988, 1047, 1319].forEach((f, i) => tone(f, i * 0.12, 0.22, { volume: 0.08 })),
+    count: () => tone(880, 0, 0.12, { volume: 0.06 })
+};
+
+function play(name) {
+    if (!ctx || ctx.state !== 'running' || !SOUNDS[name]) return;
+    SOUNDS[name]();
+}
+
+// 先バレ音。pitch: 'normal' / 'high' (AT 直撃: 高くした音)
+function sakibare(pitch = 'normal') {
+    if (!ctx || ctx.state !== 'running') return;
+    if (!voice) {
+        SOUNDS.kakutei();
+        return;
+    }
+    const src = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    src.buffer = voice;
+    src.playbackRate.value = pitch === 'high' ? 1.45 : 1;
+    gain.gain.value = VOICE.gain;
+    src.connect(gain).connect(master);
+    src.start(0, VOICE.start, VOICE.end - VOICE.start);
+}
+
+// ----- BGM -----
+const NOTE_INDEX = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+let track = null;
+let step = 0;
+let nextTime = 0;
+
+function frequency(note) {
+    const m = /^([A-G]#?)(\d)$/.exec(note);
+    const midi = (Number(m[2]) + 1) * 12 + NOTE_INDEX[m[1]];
+    return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function bgmNote(freq, type, time, duration, level) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(level, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    osc.connect(gain).connect(bgmGain);
+    osc.start(time);
+    osc.stop(time + duration + 0.02);
+}
+
+function schedule() {
+    if (!ctx || !track || ctx.state !== 'running') return;
+    const t = BGM_TRACKS[track];
+    const stepDur = 60 / t.bpm / 2;
+    if (nextTime < ctx.currentTime) nextTime = ctx.currentTime + 0.05;
+    while (nextTime < ctx.currentTime + 0.15) {
+        const m = t.melody[step % t.melody.length];
+        const b = t.bass[step % t.bass.length];
+        if (m !== '.') bgmNote(frequency(m), 'square', nextTime, stepDur * 0.9, 0.35);
+        if (b !== '.') bgmNote(frequency(b), 'triangle', nextTime, stepDur * 0.95, 0.8);
+        nextTime += stepDur;
+        step++;
+    }
+}
+
+// 曲を切り替える (同じ曲なら何もしない。null で止める)
+function bgm(name) {
+    if (track === name) return;
+    track = name;
+    step = 0;
+    if (ctx) nextTime = ctx.currentTime + 0.1;
+}
+
+function setMuted(on) {
+    muted = on;
+    if (master) master.gain.setTargetAtTime(on ? 0 : 1, ctx.currentTime, 0.02);
+    try { localStorage.setItem('koori-slot-muted', on ? '1' : '0'); } catch (e) { /* 無視 */ }
+}
+
+export const Sound = { unlock, play, sakibare, bgm, setMuted, get muted() { return muted; } };
