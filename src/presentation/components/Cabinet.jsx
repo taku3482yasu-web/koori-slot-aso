@@ -55,10 +55,30 @@ function Reels({ game, nav }) {
                     </span>
                 ))}
             </div>
-            <canvas ref={ref} className="reels" aria-label="リール" onClick={() => game.next()} />
+            <canvas
+                ref={ref}
+                className="reels"
+                aria-label="リール"
+                onPointerDown={e => {
+                    e.preventDefault();
+                    game.next();
+                }}
+            />
         </div>
     );
 }
+
+// ボタンは押した瞬間に反応させる (クリックは指を離したときなので遅れる・取りこぼす)。
+// フォーカスも移さない (Space キーでボタンが二重に押されないように)
+const press = fn => ({
+    onPointerDown: e => {
+        e.preventDefault();
+        fn();
+    },
+    onKeyDown: e => {
+        if (e.key === 'Enter') fn();
+    }
+});
 
 export default function Cabinet({ game }) {
     const d = game.director.snapshot();
@@ -82,11 +102,11 @@ export default function Cabinet({ game }) {
                 <span>PAYOUT <b>{d.lastPayout}</b></span>
             </div>
             <div className="controls">
-                <button type="button" className="lever" onClick={() => game.lever()} aria-label="レバー">
+                <button type="button" className="lever" {...press(() => game.lever())} aria-label="レバー">
                     <span className="knob" />
                     <span className="label">LEVER</span>
                 </button>
-                <button type="button" className={buttonClass} onClick={() => game.push()} aria-label="PUSH ボタン">
+                <button type="button" className={buttonClass} {...press(() => game.push())} aria-label="PUSH ボタン">
                     PUSH
                 </button>
                 <div className="stops">
@@ -95,7 +115,7 @@ export default function Cabinet({ game }) {
                             type="button"
                             key={i}
                             className={stopped[i] ? 'stop' : 'stop active'}
-                            onClick={() => game.stop(i)}
+                            {...press(() => game.stop(i))}
                             aria-label={['左停止', '中停止', '右停止'][i]}
                         />
                     ))}

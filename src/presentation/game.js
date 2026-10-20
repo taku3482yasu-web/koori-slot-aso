@@ -11,6 +11,7 @@ import { createReelView } from './reels/reelView.js';
 import { Sound } from './sound/sound.js';
 
 const MIN_SPIN_MS = 250;   // レバーから停止ボタンが効くまで
+const KEEP_MS = 1500;      // まだ押せないときに押された操作を覚えておく時間
 
 export function createGame({ setting = 1 } = {}) {
     const machine = createMachine({ setting });
@@ -24,10 +25,53 @@ export function createGame({ setting = 1 } = {}) {
     let spunAt = 0;
     let auto = false;
     let autoTimer = 0;
+    // まだ押せないとき (リールが止まりきる前・回り始めた直後など) に押された操作。押せるようになったら押した順に実行する
+    let pending = [];   // { kind: 'lever' | 'stop', reel, at }
+
+    function canLever() {
+        return !director.busy() && !reels.anyMoving() && stopped.every(Boolean);
+    }
+
+    // 同じ操作を続けて覚えない (同じボタンの連打は1回)
+    function keep(action) {
+        const last = pending[pending.length - 1];
+        if (!last || last.kind !== action.kind || last.reel !== action.reel) pending.push({ ...action, at: performance.now() });
+    }
+
+    // 覚えておいた操作を実行する (ずっと呼ばれている)
+    function flushPending() {
+        const t = performance.now();
+        pending = pending.filter(p => t - p.at <= KEEP_MS);
+        while (pending.length) {
+            const p = pending[0];
+            if (p.kind === 'lever') {
+                if (!canLever()) return;
+                pending.shift();
+                lever();
+            } else {
+                if (stopped[p.reel]) {
+                    pending.shift();   // もう止まっている
+                    continue;
+                }
+                if (t - spunAt < MIN_SPIN_MS) return;
+                pending.shift();
+                stop(p.reel, true);
+            }
+        }
+    }
+    setInterval(flushPending, 16);
 
     function lever() {
         Sound.unlock();
-        if (director.busy() || reels.anyMoving() || !stopped.every(Boolean)) return false;
+        // PUSH 待ちのときは、レバーを PUSH として扱う
+        if (director.snapshot().waitingPush) {
+            push();
+            return false;
+        }
+        if (!canLever()) {
+            keep({ kind: 'lever' });
+            return false;
+        }
         if (!machine.lever()) return false;
         stopped = [false, false, false];
         spunAt = performance.now();
@@ -36,9 +80,18 @@ export function createGame({ setting = 1 } = {}) {
         return true;
     }
 
-    function stop(reel) {
+    // fromQueue: 覚えておいた操作を実行するとき (順番待ちをしない)
+    function stop(reel, fromQueue = false) {
         Sound.unlock();
-        if (stopped[reel] || performance.now() - spunAt < MIN_SPIN_MS) return false;
+        if (stopped[reel]) {
+            // 前のレバーを待っているあいだに押されたら、覚えておく
+            if (pending.some(p => p.kind === 'lever')) keep({ kind: 'stop', reel });
+            return false;
+        }
+        if (!fromQueue && (performance.now() - spunAt < MIN_SPIN_MS || pending.length)) {
+            keep({ kind: 'stop', reel });
+            return false;
+        }
         const last = stopped.filter(Boolean).length === 2;
         if (last) director.holdForReels();
         const press = reels.pressIndex(reel);
@@ -51,10 +104,20 @@ export function createGame({ setting = 1 } = {}) {
         return true;
     }
 
-    // レバーか、次の停止 (左から順)
+    // レバーか、次の停止 (左から順)。順番待ちの操作も数に入れて、次に押すものを決める
     function next() {
-        const i = stopped.indexOf(false);
-        if (i >= 0) return stop(i);
+        // 最後のレバーよりあとに覚えている停止 (レバーがなければ全部)
+        const afterLever = pending.slice(pending.map(p => p.kind).lastIndexOf('lever') + 1);
+        const queued = reel => afterLever.some(p => p.kind === 'stop' && p.reel === reel);
+        if (pending.some(p => p.kind === 'lever')) {
+            // 次のゲームのレバーを待っているあいだ: 次のゲームの停止として覚える
+            const i = [0, 1, 2].find(r => !queued(r));
+            if (i !== undefined) keep({ kind: 'stop', reel: i });
+            return false;
+        }
+        const i = [0, 1, 2].find(r => !stopped[r] && !queued(r));
+        if (i !== undefined) return stop(i);
+        if (!stopped.every(Boolean)) return false;   // 残りの停止は順番待ち
         return lever();
     }
 
@@ -72,7 +135,7 @@ export function createGame({ setting = 1 } = {}) {
         autoTimer = setTimeout(autoStep, 180 + Math.random() * 120);
     }
 
-    // 確認用の URL の指定 (例: ?state=high&zencho=real&team=muscle&auto=1)。docs/presentation.md に一覧がある
+    // 確認用の URL の指定 (例: ?state=high&zencho=real&team=muscle&auto=1)。README に一覧がある
     function applyQuery(search) {
         const q = new URLSearchParams(search);
         const d = machine.debug;

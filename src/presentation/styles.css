@@ -166,7 +166,15 @@ body {
     margin-top: 16px;
 }
 
-.controls button { font-family: var(--display); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.controls button {
+    font-family: var(--display);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    /* ダブルタップでの拡大をしない (続けて押したときに取りこぼさない) */
+    touch-action: manipulation;
+    user-select: none;
+}
+.reels { touch-action: manipulation; }
 
 .lever {
     width: 64px;

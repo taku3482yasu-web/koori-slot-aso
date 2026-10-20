@@ -20,6 +20,8 @@ export default function App() {
 
     useEffect(() => game.subscribe(() => setTick(t => t + 1)), [game]);
     useEffect(() => game.applyQuery(window.location.search), [game]);
+    // 確認用 (開発者ツールのコンソールから台をさわれるように)
+    useEffect(() => { window.kooriGame = game; }, [game]);
 
     useEffect(() => {
         const onKey = e => {

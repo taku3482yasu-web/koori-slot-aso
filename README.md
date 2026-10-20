@@ -8,6 +8,7 @@
 ## 遊び方・確認のしかた
 
 **いちばん手軽なのは `play.html` をダブルクリック**して開くことです（ブラウザだけで動く1つのファイル）。
+ネットでは https://taku3482yasu-web.github.io/koori-slot-aso/ で遊べます（main に push すると GitHub Actions がビルドして公開する。`.github/workflows/pages.yml`）。
 `index.html` を直接開くと真っ白になります（開発用の元のファイルなので、`npm run dev` で開く）。
 
 ```sh
