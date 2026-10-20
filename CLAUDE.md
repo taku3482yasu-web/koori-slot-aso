@@ -10,3 +10,4 @@
 - 画面設計書は `docs/screen-design.md`・キャラ設計書は `docs/characters.md`。直したら `node tools/build-design.mjs` で `docs/design.html` を作り直す。
 - 液晶の絵の道具は `src/presentation/lcd/kit.js`（設計書の画面イメージと共通）。キャラのドット絵は `src/presentation/art/`。
 - テスト：`npm test`。ビルド：`npm run build`。
+- ユーザーは `play.html` をダブルクリックして遊ぶ。演出や内部処理を直したら `npm run build:file` で play.html を作り直してからコミットする（`index.html` を直接開くと真っ白になる）。

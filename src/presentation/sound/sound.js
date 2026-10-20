@@ -2,10 +2,12 @@
 // 効果音と BGM (Web Audio。パチンコ版と同じ作り)
 // ---------------------------------------------------------------------
 // ブラウザは、画面を一度さわる・キーを押すまで音を出せないので、そのときに Sound.unlock() で準備する。
-// 先バレ音はパチンコ版の録音 (public/sounds/heso.m4a の 1.3〜3.5秒、4倍の音量)。AT 直撃は高くして鳴らす。
+// 先バレ音はパチンコ版の録音 (sound/assets/heso.m4a の 1.3〜3.5秒、4倍の音量)。AT 直撃は高くして鳴らす。
 // =====================================================================
 
 import { BGM_TRACKS } from './tracks.js';
+// 先バレ音の録音。?inline で data: の URL にして、ファイルを直接開いても読めるようにする
+import hesoUrl from './assets/heso.m4a?inline';
 
 let ctx = null;
 let master = null;
@@ -30,7 +32,7 @@ function unlock() {
     bgmGain = ctx.createGain();
     bgmGain.gain.value = 0.06;
     bgmGain.connect(master);
-    fetch(`${import.meta.env.BASE_URL}sounds/heso.m4a`)
+    fetch(hesoUrl)
         .then(r => r.arrayBuffer())
         .then(buf => ctx.decodeAudioData(buf))
         .then(b => { voice = b; })

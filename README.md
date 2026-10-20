@@ -7,11 +7,15 @@
 
 ## 遊び方・確認のしかた
 
+**いちばん手軽なのは `play.html` をダブルクリック**して開くことです（ブラウザだけで動く1つのファイル）。
+`index.html` を直接開くと真っ白になります（開発用の元のファイルなので、`npm run dev` で開く）。
+
 ```sh
 npm install
 npm run dev        # http://localhost:5173 を開く
 npm test           # 内部処理（仮組）のテスト
 npm run build      # dist/ に作る（Railway は npm run build → npm start）
+npm run build:file # play.html（ダブルクリックで遊べる1つのファイル）を作り直す
 node tools/build-design.mjs   # 画面設計書・キャラ設計書のページ（docs/design.html）を作り直す
 ```
 
