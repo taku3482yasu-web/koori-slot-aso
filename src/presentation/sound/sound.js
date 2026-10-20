@@ -98,6 +98,15 @@ const SOUNDS = {
         [1568, 2093, 2637, 3136].forEach((f, i) => tone(f, 0.45 + i * 0.07, 0.4, { volume: 0.07, type: 'triangle' }));
         tone(523, 0.45, 1.2, { volume: 0.06, type: 'sawtooth' });
     },
+    // 上乗せ音 (大きさで3段階。画面設計書 7-2): 〜30G / 50G / 100G 以上
+    addSmall: () => [1319, 1760].forEach((f, i) => tone(f, i * 0.08, 0.15, { volume: 0.07 })),
+    addMid: () => [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, i * 0.07, 0.2, { volume: 0.08 })),
+    addBig: () => {
+        [1047, 1319, 1568, 2093, 2637, 3136].forEach((f, i) => tone(f, i * 0.06, 0.3, { volume: 0.08 }));
+        tone(262, 0, 1, { slideTo: 1047, volume: 0.06, type: 'sawtooth' });
+    },
+    // AT 終了
+    atEnd: () => [784, 659, 523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.16, 0.3, { volume: 0.06, type: 'triangle' })),
     // ボーナス終了 (AT にも 1G連 にもならないとき)
     bonusEnd: () => [1047, 784, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.22, { volume: 0.06, type: 'triangle' }))
 };

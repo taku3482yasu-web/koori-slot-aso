@@ -106,7 +106,15 @@ export default function Cabinet({ game }) {
                     <span className="knob" />
                     <span className="label">LEVER</span>
                 </button>
-                <button type="button" className={buttonClass} {...press(() => game.push())} aria-label="PUSH ボタン">
+                <button
+                    type="button"
+                    className={buttonClass}
+                    {...press(() => game.push())}
+                    onPointerUp={() => game.release()}
+                    onPointerLeave={() => game.release()}
+                    onPointerCancel={() => game.release()}
+                    aria-label="PUSH ボタン"
+                >
                     PUSH
                 </button>
                 <div className="stops">

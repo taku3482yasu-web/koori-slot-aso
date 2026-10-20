@@ -127,6 +127,11 @@ export function createGame({ setting = 1 } = {}) {
         notify();
     }
 
+    // PUSH ボタンを離した (長押しの演出で使う)
+    function release() {
+        director.release();
+    }
+
     // オート (確認用): 一定の間隔でレバー・停止・PUSH を押す
     function autoStep() {
         if (!auto) return;
@@ -166,6 +171,7 @@ export function createGame({ setting = 1 } = {}) {
         stop,
         next,
         push,
+        release,
         subscribe(fn) {
             listeners.add(fn);
             return () => listeners.delete(fn);

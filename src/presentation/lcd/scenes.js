@@ -8,8 +8,8 @@
 import { ART } from '../art/characters.js';
 import { drawSymbol } from '../art/symbols.js';
 import {
-    BODY, GROUND, H, RAINBOW, W, ch, cutin, floorTag, haze, plusGames, rainbow, rays, rect, room, roundRect,
-    seeded, text, tower, vgrad, atBackground
+    BODY, GROUND, H, RAINBOW, W, ch, cutin, floorTag, haze, rainbow, rays, rect, room, roundRect,
+    seeded, text, vgrad
 } from './kit.js';
 
 export const TEAMS = {
@@ -319,31 +319,7 @@ export function drawDirect(ctx, t, since, phase) {
     if (since > 300) text(ctx, 'こおりいきていける！', W / 2, 26, { size: 20, color: rainbow(ctx, 60, 0, 260, 0), lw: 5 });
 }
 
-// ----- AT (仮。次の段階で作る。ボーナスは bonus.js) -----
-export function drawAt(ctx, t, at) {
-    atBackground(ctx);
-    // 流れる線
-    const rnd = seeded(3);
-    for (let i = 0; i < 30; i++) {
-        const x = (rnd() * W * 2 - (t / 3) % (W * 2) + W * 2) % (W * 2) - W / 2;
-        rect(ctx, x, rnd() * 130, 30 + rnd() * 50, 1, 'rgba(140,215,250,.4)');
-    }
-    tower(ctx, 260, 130, 110, '#06101c');
-    teamWalking(ctx, t, 120);
-    rect(ctx, 0, 0, W, 22, 'rgba(0,0,0,.55)');
-    text(ctx, 'こおりバトルRASH', 8, 11.5, { size: 12, align: 'left', color: '#8fd6f7', stroke: null });
-    roundRect(ctx, W - 92, 3, 86, 17, 3, 'rgba(255,255,255,.12)');
-    text(ctx, '残り', W - 76, 11.5, { size: 9, color: '#c8e8ff', stroke: null, font: BODY });
-    text(ctx, `${at.left}G`, W - 36, 11.5, { size: 13, color: '#ffffff', stroke: null });
-    text(ctx, `獲得 ${at.payout}枚`, 8, 170, { size: 9, align: 'left', color: '#c8e8ff', stroke: null, font: BODY });
-    if (at.add && t - at.add.at < 1600) {
-        const since = t - at.add.at;
-        ctx.save();
-        ctx.globalAlpha = 1 - Math.max(0, (since - 1200) / 400);
-        plusGames(ctx, `+${at.add.games}G`, W / 2, 70 - ease(since / 300) * 10, 34);
-        ctx.restore();
-    }
-}
+// ボーナスの画面は bonus.js、AT の画面は at.js
 
 // ----- ふるカワのナビ (吹き出し) -----
 export function drawNavi(ctx, line, since) {

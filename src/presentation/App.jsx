@@ -33,13 +33,20 @@ export default function App() {
                 e.preventDefault();
                 game.stop(KEYS[e.key]);
             } else if (e.key === 'b' || e.key === 'B') {
-                game.push();
+                if (!e.repeat) game.push();   // 押しっぱなしは長押し (離したら release)
             } else if (e.key === 'd' || e.key === 'D') {
                 setShowDebug(s => !s);
             }
         };
+        const onKeyUp = e => {
+            if (e.key === 'b' || e.key === 'B') game.release();
+        };
         window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        window.addEventListener('keyup', onKeyUp);
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            window.removeEventListener('keyup', onKeyUp);
+        };
     }, [game]);
 
     useEffect(() => {
