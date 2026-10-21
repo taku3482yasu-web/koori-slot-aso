@@ -356,6 +356,82 @@ function downChar(ctx, t, id, x, w, h) {
     }
 }
 
+// 必殺技: 左に技を出す側 (cast)、右に相手 (target)。技の名前の帯を出し、力をためてから命中する。
+// special は技の名前 (セリフが変わるごとに次の名前にするときは配列)。命中はいちばん最後のセリフのとき。
+// ko: true なら命中したあと相手が倒れる。crowd (群れ) は命中で吹き飛ぶ。
+// beam: true は相手が放った魔法のビームを、cast の先頭が盾で受け止めて消す (無効化。相手は倒れない)
+function drawSpecial(ctx, t, scene, sayIndex, sayCount, k2) {
+    const cast = scene.cast.map(castOf);
+    const names = [].concat(scene.special);
+    const name = names[Math.min(sayIndex, names.length - 1)];
+    const last = sayIndex === sayCount - 1;
+    const hitAt = sayCount > 1 ? 700 : 1500;
+    const hit = last && k2 >= hitAt;
+    const since = hit ? k2 - hitAt : 0;
+    const shake = hit && since < 400 ? Math.sin(since / 20) * 4 * (1 - since / 400) : 0;
+    ctx.save();
+    ctx.translate(shake, 0);
+    const tx = W - 62;
+    // 群れは命中するまで相手のうしろにいる
+    if (scene.crowd && !hit) drawCrowd(ctx, t, scene.crowd, 196, 312, true);
+    if (scene.target) {
+        if (hit && scene.ko) downChar(ctx, t, scene.target, tx, 70, 50);
+        else fitChar(ctx, scene.target, tx + (hit ? Math.sin(since / 25) * 3 : 0), 122, 70, 50, { frame: frameOf(t, 400), flip: true, tint: hit && since < 300 ? '#ffffff' : null }, 2.8);
+    }
+    // 技を出す側: 力をためているあいだは足もとから光が立ちのぼる
+    const n = cast.length;
+    cast.forEach((c, i) => {
+        const x = n === 1 ? 92 : 36 + i * (120 / (n - 1));
+        if (!hit) {
+            ctx.save();
+            ctx.globalAlpha = 0.35 + Math.sin(t / 90 + i) * 0.2;
+            rect(ctx, x - 14, 70, 28, 52, vgrad(ctx, 70, 122, ['rgba(255,240,160,0)', '#ffe680']));
+            ctx.restore();
+        }
+        fitChar(ctx, c.id, x + (hit ? 6 : 0), 122, n > 2 ? 40 : 56, 50, { frame: frameOf(t, hit ? 120 : 260) }, 2.6);
+    });
+    if (scene.beam && !hit) {
+        // 相手から左へのびるビームと、先頭のキャラの前の盾
+        const sx = (n === 1 ? 92 : 36) + 30;
+        const len = Math.min(1, k2 / 900);
+        rect(ctx, tx - 26 - (tx - 26 - sx) * len, 78, (tx - 26 - sx) * len, 8, vgrad(ctx, 78, 86, ['#d0b0ff', '#ffffff', '#d0b0ff']));
+        ctx.save();
+        ctx.globalAlpha = 0.6 + Math.sin(t / 60) * 0.2;
+        ctx.strokeStyle = '#ffe040';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(sx - 4, 82, 22, -Math.PI / 2.4, Math.PI / 2.4);
+        ctx.stroke();
+        ctx.restore();
+    }
+    ctx.restore();
+    // 命中: 白い光と、とび散る星
+    if (hit && since < 700) {
+        const a = 1 - since / 700;
+        rect(ctx, 0, 0, W, H, `rgba(255,255,255,${0.7 * a})`);
+        const cx = scene.beam ? 130 : tx, cy = 84;
+        const rnd = seeded(7);
+        for (let i = 0; i < 14; i++) {
+            const ang = rnd() * Math.PI * 2, d = since / 8 * (0.5 + rnd());
+            text(ctx, '★', cx + Math.cos(ang) * d, cy + Math.sin(ang) * d, { size: 9, color: i % 2 ? '#ffe040' : '#ff8a20', stroke: null });
+        }
+    }
+    // 技の名前の帯 (斜めの帯に大きな文字)
+    const slide = ease(Math.min(1, k2 / 250));
+    ctx.save();
+    ctx.translate((1 - slide) * -W, 0);
+    ctx.beginPath();
+    ctx.moveTo(0, 46);
+    ctx.lineTo(W, 40);
+    ctx.lineTo(W, 62);
+    ctx.lineTo(0, 68);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(160,0,20,.85)';
+    ctx.fill();
+    text(ctx, name, W / 2, 54, { size: [...name].length > 12 ? 13 : 16, color: vgrad(ctx, 44, 64, ['#ffffff', '#ffe040']), lw: 4, stroke: '#3a0008' });
+    ctx.restore();
+}
+
 const DROP_MS = 600;   // 落ちてくるキャラが着地するまで
 
 function drawEpisode(ctx, t, b) {
@@ -367,12 +443,13 @@ function drawEpisode(ctx, t, b) {
     const k = t - (b.sceneAt || t);
     // then があれば、セリフが出きって少したってから次の人に切りかえる (then は1つでも配列でもよい。k2 は今のセリフが出はじめてからの時間)
     const says = [scene, ...[].concat(scene.then || [])];
-    let say = scene, k2 = k;
+    let say = scene, k2 = k, sayIndex = 0;
     for (const next of says.slice(1)) {
         const ms = [...say.line].length * 45 + 1200;
         if (k2 < ms) break;
         k2 -= ms;
         say = next;
+        sayIndex++;
     }
     // 落ちてくるキャラが着地したら、画面を少しゆらす
     const land = k - DROP_MS;
@@ -385,6 +462,7 @@ function drawEpisode(ctx, t, b) {
     else if (scene.brawl) drawBrawl(ctx, t, scene);
     else if (scene.vs) drawVs(ctx, t, scene);
     else if (scene.clash) drawClash(ctx, t, scene);
+    else if (scene.special) drawSpecial(ctx, t, scene, sayIndex, says.length, k2);
     else {
         // 出るキャラを左から並べる (右半分にいるキャラは左を向く)。群れがいるときは、キャラを左に寄せて群れを右に置く
         const cast = scene.cast.map(castOf);

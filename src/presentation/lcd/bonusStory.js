@@ -36,6 +36,7 @@ export const REG_CARDS = BIG_CARDS.filter(c => ['koori', 'onioni'].includes(c.wh
 //   then: { who, line } か、その配列。同じ場面でセリフのあとに順に出す / cast の drop: true で上から落ちてくる / crowd: 群れで出すキャラ (右側に並ぶ) / chase: true で群れに追いかけ回される
 //   brawl: true で大乱戦 (土けむりのまわりで cast がもみ合う) / vs: true で cast の2人がにらみ合い、まんなかに「VS」
 //   clash: true で cast の2人の一騎打ち (ぶつかって火花) / cast の down: true で倒れて横になる / floor: '22F' で左上に階を出す
+//   special: '技の名前' (配列ならセリフごとに次の名前) で必殺技。cast が技を出し、target が相手。最後のセリフで命中し、ko: true なら相手が倒れる。beam: true は相手の魔法を受け止めて消す
 //   bg: 'home' (こおりくんの家) / 'town' (夕焼けの町) / 'tower' (摩天楼の前・全体) / 'lobby' (摩天楼1階) / 'middle' (中間階層) / 'boss' (四天王の階) / 'top' (最上階)
 export const EPISODES = [
     {
@@ -260,6 +261,59 @@ export const EPISODES = [
             {
                 bg: 'top', floor: '56F', vs: true, cast: ['koori', 'maou'], who: '大魔王ASO', line: '来い！我が力、その身で味わうがよい！',
                 then: { who: 'こおりくん・おにおに', line: 'うおおおおおお！！' }
+            }
+        ]
+    },
+    {
+        title: '仲間たちの戦い',   // 題名は仮 (ユーザーに確認する)
+        scenes: [
+            // 第8話はユーザーが決めた流れ (2026-10-21) をもとに Claude が書いたセリフ。直してもらう
+            // 技の名前はユーザー指定: だけチョップ・おちょくりボーンフィーバー・DOPAPANCHI・イケキムドライブ・マッスルウエノクラッシュ。
+            // 名前の指定がない技 (やすさん・たむさん、5DX の同時必殺技、KOTANI、シバター) は帯に技の説明だけ出している
+            // 22階: やすさん・たむさんが浦の島重蔵を、だけさんがダイシを倒す
+            {
+                bg: 'boss', floor: '22F', special: 'やすさん・たむさん 合体必殺技', cast: ['yasu', 'tamu'], target: 'urashima', ko: true, who: 'やすさん', line: 'たむさん、いくよ！せーの！',
+                then: [{ who: 'たむさん', line: 'これで終わりや！' }, { who: '浦の島重蔵', line: 'ぐわーっ…わしは…なんじゃったかの…' }]
+            },
+            {
+                bg: 'boss', floor: '22F', special: 'だけチョップ', cast: ['dake'], target: 'daishi', ko: true, who: 'ダイシ', line: '…仏の顔はここまで。鬼となった拙僧を止められますかな？',
+                then: { who: 'だけさん', line: 'この鍛え上げたこぶしで…だけチョーーップ！！' }
+            },
+            // 33階: チーム5DX が同時に必殺技を放ち、マキビコンごとズミタニを倒す
+            {
+                bg: 'boss', floor: '33F', cast: ['okagappa', 'hibikimakuri', 'yamamou', 'zumitani'], crowd: 'makibikon', who: 'ズミタニ', line: 'あれれ～？まだ立ってるの？しぶといのだけは一流だね♪',
+                then: { who: 'やまもぅ', line: '…今、おちょくったな？牛をおちょくるやつは許さん！' }
+            },
+            {
+                bg: 'boss', floor: '33F', special: ['5DX 同時必殺技', 'おちょくりボーンフィーバー'], cast: ['okagappa', 'hibikimakuri', 'yamamou'], target: 'zumitani', crowd: 'makibikon', ko: true, who: 'おかがっぱ', line: 'みんな、同時にいくぜ　イェア！',
+                then: [{ who: 'やまもぅ', line: 'おちょくりボーンフィーバー！！モォーーー！' }, { who: 'ズミタニ', line: 'うそでしょ～！？マキビコンごと～！？' }]
+            },
+            // 44階: SASAKI がすきを作り、KOTANI が奈架多ドラゴンを切り伏せる
+            {
+                bg: 'boss', floor: '44F', special: 'KOTANI 一刀両断', cast: ['sasaki', 'kotani'], target: 'nakata', ko: true, who: 'Mr.SASAKI', line: 'ドラゴンさん、こっちこっち！…はい、すきあり！',
+                then: [{ who: 'Mr.KOTANI', line: '計算どおりです。…切り伏せます。' }, { who: '奈架多ドラゴン', line: 'グオ…（力加減…まちがえた…）' }]
+            },
+            // ルナヤの魔法を KING.ASAHARA が真正面から無効化し、DOPAPANCHI で一撃
+            {
+                bg: 'boss', floor: '44F', special: ['ルナヤ 月の魔法', '無効化！'], beam: true, cast: ['asahara'], target: 'runaya', who: 'ルナヤ', line: '月の力よ…！このビームで…あら、もう撃ったかしら？',
+                then: { who: 'KING.ASAHARA', line: 'ふん、そんな小細工、このワシには効かん！' }
+            },
+            {
+                bg: 'boss', floor: '44F', special: 'DOPAPANCHI', cast: ['asahara'], target: 'runaya', ko: true, who: 'KING.ASAHARA', line: 'これがCS城の主の力だ…DOPAPANCHI！！',
+                then: { who: 'ルナヤ', line: 'きゃあっ…！い、一撃…！？' }
+            },
+            // 55階: チームお願いマッスルが総力でノゾエマとぶつかる。シバター → イケキムドライブ → マッスルウエノクラッシュでとどめ
+            {
+                bg: 'boss', floor: '55F', brawl: true, cast: ['shibata', 'ueno', 'ikekimu', 'nozoema'], who: 'ノゾエマ', line: '来い！この刀と筋肉、まとめて受けてみよ！',
+                then: { who: 'ウエノーブル', line: 'お願いマッスル、総力戦だ！' }
+            },
+            {
+                bg: 'boss', floor: '55F', special: ['シバター 渾身の一撃', 'イケキムドライブ'], cast: ['shibata', 'ikekimu'], target: 'nozoema', who: 'シバター', line: 'まずはオレから！撮れ高いただきー！んなああ～',
+                then: { who: 'イケキム', line: 'すきだらけだ。…イケキムドライブ！' }
+            },
+            {
+                bg: 'boss', floor: '55F', special: 'マッスルウエノクラッシュ', cast: ['ueno'], target: 'nozoema', ko: true, who: 'ウエノーブル', line: '妻への愛と、1日26時間の筋肉…受けてみよ！マッスルウエノクラッシュ！！',
+                then: { who: 'ノゾエマ', line: 'み…見事な…筋肉…だ…' }
             }
         ]
     }
