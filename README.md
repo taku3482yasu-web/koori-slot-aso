@@ -112,6 +112,8 @@ URL に付けると、その状態から始まります（組み合わせられ�
 - 中身は `src/presentation/collection/`（`collection.js` が数えて保存、`profiles.js` が説明文）、画面は `src/presentation/components/Zukan.jsx`
 - 内部処理の担当に渡す、足した部分だけのフォルダ：`handoff/2026-10-21_zukan-trophy/`
 
+**押し順ナビ**（2026-10-21）：リールの上の数字は、次に押すリールだけ赤く光る（押したら次へ）。ナビとちがうリールを押すと、液晶に「⚠ ナビに従ってください」とブザー。Space はナビの順に止める。
+
 **画面の大きさ**：ページを開いたとき、筐体がまるごと画面の高さに収まるように縮めて出す（`App.jsx` の `useFitToScreen`）。
 
 ## フォルダ
