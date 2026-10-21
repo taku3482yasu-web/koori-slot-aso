@@ -315,6 +315,47 @@ function drawVs(ctx, t, scene) {
     ctx.restore();
 }
 
+// 一騎打ち: 2人が左右から突っこんでぶつかり、火花が散ってははね返る
+const CLASH_MS = 1100;
+function drawClash(ctx, t, scene) {
+    const [l, r] = scene.cast.map(castOf);
+    const p = (t % CLASH_MS) / CLASH_MS;
+    // 0〜0.45 で近づき、0.45〜0.6 でぶつかったまま押し合い、そのあと離れる
+    const near = p < 0.45 ? ease(p / 0.45) : p < 0.6 ? 1 : 1 - ease((p - 0.6) / 0.4);
+    const gap = 110 - near * 72;
+    const shake = p >= 0.45 && p < 0.6 ? Math.sin(t / 15) * 2 : 0;
+    fitChar(ctx, l.id, W / 2 - gap / 2 - 18 + shake, 122, 64, 60, { frame: frameOf(t, 160) }, 2.6);
+    fitChar(ctx, r.id, W / 2 + gap / 2 + 18 - shake, 122, 64, 60, { frame: frameOf(t, 160), flip: true }, 2.6);
+    if (p >= 0.45 && p < 0.75) {
+        const a = 1 - (p - 0.45) / 0.3;
+        ctx.save();
+        ctx.globalAlpha = a;
+        rays(ctx, W / 2, 86, ['#ffffff', 'rgba(255,255,255,0)'], 20, 0.5);
+        const rnd = seeded(Math.floor(t / CLASH_MS));
+        for (let i = 0; i < 10; i++) {
+            const ang = rnd() * Math.PI * 2, d = 10 + (1 - a) * 40 * (0.5 + rnd());
+            rect(ctx, W / 2 + Math.cos(ang) * d, 86 + Math.sin(ang) * d, 3, 3, i % 2 ? '#ffe040' : '#ff8a20');
+        }
+        text(ctx, Math.floor(t / CLASH_MS) % 2 ? 'ガキィン！' : 'ドゴォッ！', W / 2, 40, { size: 16, color: '#ffffff', lw: 4, stroke: '#a01010' });
+        ctx.restore();
+    }
+}
+
+// 倒れたキャラ: 横向きに寝かせて、頭の上で星が回る
+function downChar(ctx, t, id, x, w, h) {
+    const a = ART[id];
+    const s = Math.min(w / a.w, h / a.h, 2.8);
+    ctx.save();
+    ctx.translate(x, 122 - (a.w * s) / 2);
+    ctx.rotate(Math.PI / 2);
+    ch(ctx, id, 0, (a.h * s) / 2, { scale: s });
+    ctx.restore();
+    for (let i = 0; i < 3; i++) {
+        const ang = t / 300 + (i / 3) * Math.PI * 2;
+        text(ctx, '★', x + (a.h * s) / 2 + Math.cos(ang) * 10, 122 - a.w * s - 6 + Math.sin(ang) * 3, { size: 8, color: '#ffe040', stroke: null });
+    }
+}
+
 const DROP_MS = 600;   // 落ちてくるキャラが着地するまで
 
 function drawEpisode(ctx, t, b) {
@@ -343,6 +384,7 @@ function drawEpisode(ctx, t, b) {
     if (scene.chase) drawChase(ctx, t, k, scene);
     else if (scene.brawl) drawBrawl(ctx, t, scene);
     else if (scene.vs) drawVs(ctx, t, scene);
+    else if (scene.clash) drawClash(ctx, t, scene);
     else {
         // 出るキャラを左から並べる (右半分にいるキャラは左を向く)。群れがいるときは、キャラを左に寄せて群れを右に置く
         const cast = scene.cast.map(castOf);
@@ -356,6 +398,7 @@ function drawEpisode(ctx, t, b) {
             // drop: 上から落ちてきて着地する (着地のときに土ぼこり)
             const fall = c.drop ? -150 * Math.pow(1 - Math.min(1, k / DROP_MS), 2) : 0;
             if (c.hidden) hiddenChar(ctx, c.id, x, 122 + fall, box, big, opts);
+            else if (c.down) downChar(ctx, t, c.id, x, box, big);
             else fitChar(ctx, c.id, x, 122 + fall + (talking ? -1 : 0), box, big, opts, 2.8);
             if (c.drop && land > 0 && land < 500) {
                 const a = 1 - land / 500;
@@ -373,6 +416,10 @@ function drawEpisode(ctx, t, b) {
     // 場面が変わったときは少し暗くしてから明るく
     if (k < 300) rect(ctx, 0, 0, W, H, `rgba(0,0,0,${0.6 * (1 - k / 300)})`);
     text(ctx, 'EPISODE BIG', 8, 12, { size: 10, align: 'left', color: '#ffffff', lw: 3 });
+    if (scene.floor) {
+        roundRect(ctx, 6, 22, 40, 16, 3, 'rgba(5,10,16,.85)', '#ff6a6a');
+        text(ctx, scene.floor, 26, 30.5, { size: 11, color: '#ff8a8a', stroke: null });
+    }
     text(ctx, `第${(b.episode % EPISODES.length) + 1}話「${ep.title}」`, W - 8, 12, { size: 10, align: 'right', color: '#ffffff', lw: 3 });
     // セリフ (1文字ずつ出る。長いときは折り返して文字を少し小さく。3行のときは箱を上にのばす)
     const { rows, size } = wrapLine(ctx, say.line);

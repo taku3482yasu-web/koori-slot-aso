@@ -35,6 +35,7 @@ export const REG_CARDS = BIG_CARDS.filter(c => ['koori', 'onioni'].includes(c.wh
 //   bg: 背景 / cast: 出るキャラ ('id' か { id, hidden: true } = 正体不明の影絵) / who: 話す人 / line: セリフ
 //   then: { who, line } か、その配列。同じ場面でセリフのあとに順に出す / cast の drop: true で上から落ちてくる / crowd: 群れで出すキャラ (右側に並ぶ) / chase: true で群れに追いかけ回される
 //   brawl: true で大乱戦 (土けむりのまわりで cast がもみ合う) / vs: true で cast の2人がにらみ合い、まんなかに「VS」
+//   clash: true で cast の2人の一騎打ち (ぶつかって火花) / cast の down: true で倒れて横になる / floor: '22F' で左上に階を出す
 //   bg: 'home' (こおりくんの家) / 'town' (夕焼けの町) / 'tower' (摩天楼の前・全体) / 'lobby' (摩天楼1階) / 'middle' (中間階層) / 'boss' (四天王の階) / 'top' (最上階)
 export const EPISODES = [
     {
@@ -156,6 +157,59 @@ export const EPISODES = [
             {
                 bg: 'middle', vs: true, cast: ['onioni', 'asahara'], who: 'おにおに', line: 'その勝負、SE城の主、このおにおにが受けて立つ！',
                 then: { who: 'KING.ASAHARA', line: 'おにおに…！望むところだ！' }
+            }
+        ]
+    },
+    {
+        title: '一騎打ち',   // 題名は仮 (ユーザーに確認する)
+        scenes: [
+            // 第6話はユーザーが決めた流れ (2026-10-21) をもとに Claude が書いたセリフ。直してもらう
+            // おにおにと KING.ASAHARA の一騎打ち
+            {
+                bg: 'middle', clash: true, cast: ['onioni', 'asahara'], who: 'KING.ASAHARA', line: 'CS城を築いたこの力、思い知るがいい！',
+                then: { who: 'おにおに', line: 'その程度か、ASAHARA！SE城の金棒をなめるなよ！' }
+            },
+            {
+                bg: 'middle', clash: true, cast: ['onioni', 'asahara'], who: 'Mr.KOTANI', line: 'ASAHARA様の勝率…50.2%…49.8%…数字がゆれています…！',
+                then: { who: 'こおりくん', line: 'がんばれー！おにおにー！' }
+            },
+            // 激闘の末、おにおにが勝つ
+            {
+                bg: 'middle', cast: ['onioni', { id: 'asahara', down: true }], who: 'おにおに', line: 'はあ…はあ…勝負あったな、ASAHARA。',
+                then: { who: 'KING.ASAHARA', line: 'ぐぬぬ…このワシが…負けただと…！' }
+            },
+            {
+                bg: 'middle', cast: ['sasaki', 'asahara', 'kotani'], who: 'KING.ASAHARA', line: '…約束は約束だ。ASK-3も協力してやる。ただし、財宝の分け前は忘れるなよ！',
+                then: [{ who: 'Mr.SASAKI', line: 'よっしゃ！これで4チーム同盟ですわ！' }, { who: 'Mr.KOTANI', line: '突破率、大幅に上昇。記録しておきます。' }]
+            },
+            // 4チームで摩天楼を上っていく
+            {
+                bg: 'tower', cast: ['koori', 'onioni', 'okagappa', 'ueno', 'asahara'], who: 'こおりくん', line: 'よーし！みんなで摩天楼のてっぺんを目指すぞ！',
+                then: { who: '全員', line: 'おおーーー！！' }
+            },
+            // 22階: 四天王ダイシと従者の浦の島重蔵
+            {
+                bg: 'boss', floor: '22F', cast: ['urashima', 'daishi'], who: 'ダイシ', line: 'よくぞ参られた、挑戦者たちよ。拙僧は四天王がひとり、ダイシ。',
+                then: { who: '浦の島重蔵', line: 'わしは…えーと…なんじゃったかの…そうじゃ、つり…いや、門番じゃ！' }
+            },
+            // やすさん・たむさん・だけさんが残る
+            {
+                bg: 'boss', floor: '22F', cast: ['yasu', 'tamu', 'dake'], who: 'だけさん', line: 'ここは私たちに任せて、先に行け！',
+                then: [{ who: 'やすさん', line: 'え！？ぼくも！？…ま、まあ、やるしかないか！' }, { who: 'たむさん', line: 'しゃーないな。ちゃちゃっと片づけて追いつくわ。' }]
+            },
+            {
+                bg: 'boss', floor: '22F', cast: ['yasu', 'tamu', 'dake', 'urashima', 'daishi'], who: 'ダイシ', line: '重蔵、参りますぞ。…仏の顔も、ここまでです。',
+                then: { who: 'こおりくん', line: 'みんな…！絶対に追いついてきてね！' }
+            },
+            // 33階: ズミタニがマキビコンMk-4を大量に呼ぶ
+            {
+                bg: 'boss', floor: '33F', cast: ['zumitani'], crowd: 'makibikon', who: 'ズミタニ', line: 'やっほー、77代目のズミタニだよ！ここまで来るなんて、しぶといね♪ マキビコンたち、おいで！',
+                then: { who: 'マキビコンMk-4', line: '挑戦者を確認。これより排除を開始するであります。' }
+            },
+            // チーム5DX が残り、ほかの者はさらに上へ
+            {
+                bg: 'boss', floor: '33F', cast: ['okagappa', 'hibikimakuri', 'yamamou'], crowd: 'makibikon', who: 'おかがっぱ', line: 'ここは俺たち5DXに任せな　イェア！先に行け！',
+                then: [{ who: 'やまもぅ', line: '牛の角は、鉄だって貫く！モォーー！' }, { who: 'こおりくん', line: 'ありがとう！上で待ってるからね！' }]
             }
         ]
     }
