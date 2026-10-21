@@ -42,6 +42,7 @@ export function drawBonusScreen(ctx, t, b) {
     if (b.bonus === 'epbig') drawEpisode(ctx, t, b);
     else drawCards(ctx, t, b, since);
     drawBonusHud(ctx, t, b);
+    if (b.boss) drawBossBadge(ctx, t, b.boss);
     if (since < ENTRY_MS) drawEntry(ctx, t, since, b);
 }
 
@@ -736,7 +737,7 @@ function drawEntry(ctx, t, since, b) {
     const pop = 1 + Math.max(0, 0.6 - since / 400);
     const fill = b.bonus === 'big' ? vgrad(ctx, 50, 90, ['#fff6b0', '#ffd23a', '#c88a10']) : b.bonus === 'reg' ? vgrad(ctx, 50, 90, ['#ffffff', '#b8c0cc']) : vgrad(ctx, 50, 90, ['#ffe0b0', '#ff7a4a']);
     text(ctx, BONUS_NAME[b.bonus], W / 2, 70, { size: 28 * pop, color: fill, lw: 7, stroke: '#2a0a00' });
-    const aim = { big: ['seven', 'seven', 'seven'], reg: ['seven', 'seven', 'bar'], epbig: ['bar', 'bar', 'bar'] }[b.bonus];
+    const aim = { big: ['seven', 'seven', 'seven'], reg: ['seven', 'seven', 'bar'], epbig: ['koori', 'koori', 'koori'] }[b.bonus];
     aim.forEach((id, i) => drawSymbol(ctx, id, 112 + i * 34, 100, 30));
     if (b.bonus === 'epbig' && since > 600) {
         const ep = EPISODES[b.episode % EPISODES.length];
@@ -831,8 +832,84 @@ export function drawBonusEnd(ctx, t, since, end) {
         text(ctx, 'こおりバトルRASH へ！', W / 2, 97, { size: 22, color: rainbow(ctx, 50, 0, 270, 0), lw: 6 });
         ctx.restore();
         ch(ctx, 'koori', 40, 168, { scale: 3, frame: frameOf(t, 200) });
+    } else if (end.inAt) {
+        // AT 中のボーナス: AT に戻る (特化ゾーンに当たっていたら特化ゾーンへ)
+        rect(ctx, 0, 72, W, 50, `rgba(0,0,0,${0.6 * k})`);
+        ctx.save();
+        ctx.globalAlpha = k;
+        text(ctx, end.tokka ? '特化ゾーンへ！' : 'こおりバトルRASH 再開！', W / 2, 97, { size: 22, color: end.tokka ? rainbow(ctx, 50, 0, 270, 0) : '#8fd6f7', lw: 6, stroke: '#06203a' });
+        ctx.restore();
+        ch(ctx, 'koori', 40, 168, { scale: 3, frame: frameOf(t, 200) });
     } else {
         ch(ctx, 'koori', W / 2, 150, { scale: 3, frame: frameOf(t, 500) });
         text(ctx, '摩天楼へもどる…', W / 2, 92, { size: 14, color: '#e0e6ee', lw: 4 });
     }
+}
+
+// ----- AT 中のボーナスの相手 (四天王・大魔王ASO。画面設計書 5-3。イベントは at:boss) -----
+export const BOSSES = {
+    daishi: { name: 'ダイシ', floor: '22F', stars: 1 },
+    zumitani: { name: 'ズミタニ', floor: '33F', stars: 2 },
+    runaya: { name: 'ルナヤ', floor: '44F', stars: 3 },
+    nozoema: { name: 'ノゾエマ', floor: '55F', stars: 4 },
+    maou: { name: '大魔王ASO', floor: '56F', stars: 5 }
+};
+export const BOSS_MS = { intro: 2200, win: 2400, lose: 1900 };
+
+// ボーナス中の右上の札 (相手の顔と名前)
+function drawBossBadge(ctx, t, boss) {
+    const b = BOSSES[boss];
+    if (!b) return;
+    const x = W - 86, y = 40;
+    roundRect(ctx, x, y, 80, 30, 4, 'rgba(20,0,10,.8)', '#ff6a3a');
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x + 2, y + 2, 26, 26);
+    ctx.clip();
+    fitChar(ctx, boss, x + 15, y + 40, 26, 34, { frame: frameOf(t, 500) }, 1.2);
+    ctx.restore();
+    text(ctx, b.name, x + 54, y + 10, { size: b.name.length > 4 ? 7.5 : 9, color: '#ffcc80', stroke: null, font: BODY, weight: '700' });
+    text(ctx, '★'.repeat(b.stars), x + 54, y + 22, { size: 7, color: b.stars === 5 ? '#ff6a3a' : '#ffd23a', stroke: null, font: BODY });
+}
+
+// 登場: 相手が現れて「○○ 出現！」/ 勝利: 撃破して「特化ゾーン確定」/ 敗北: 「撃破ならず…」
+// fx: { kind: 'intro' | 'win' | 'lose', boss, since }
+export function drawBossFx(ctx, t, fx) {
+    const since = t - fx.since;
+    const b = BOSSES[fx.boss] || BOSSES.daishi;
+    const big = fx.boss === 'maou';
+    if (fx.kind === 'intro') {
+        rect(ctx, 0, 0, W, H, vgrad(ctx, 0, H, big ? ['#1a0000', '#5a0a00', '#100000'] : ['#05040e', '#2a1040', '#0a0414']));
+        spinRays(ctx, t, 230, 90, [big ? '#ff3a1a' : '#b080ff', 'rgba(0,0,0,0)'], 24, 0.3, 3000);
+        const enter = ease(since / 600);
+        fitChar(ctx, fx.boss, 236 + (1 - enter) * 100, 168, 120, big ? 130 : 100, { frame: frameOf(t, 400), silhouette: since < 500 }, 2.4);
+        ch(ctx, 'koori', 80, 150, { scale: 3, frame: frameOf(t, 300) });
+        roundRect(ctx, 8, 6, 64, 18, 3, 'rgba(0,0,0,.65)', '#ff6a3a');
+        text(ctx, b.floor, 40, 15.5, { size: 11, color: '#ff8a40', stroke: null });
+        if (since > 500) {
+            const pop = 1 + Math.max(0, 0.4 - (since - 500) / 300);
+            text(ctx, `${b.name} 出現！`, W / 2, 40, { size: 22 * pop, color: '#ffcc80', lw: 6, stroke: '#3a0008' });
+            text(ctx, '勝てば特化ゾーン！', W / 2, 66, { size: 12, color: '#ffffff', lw: 4 });
+        }
+        return;
+    }
+    if (fx.kind === 'win') {
+        rect(ctx, 0, 0, W, H, '#1a0a00');
+        spinRays(ctx, t, W / 2, 96, RAINBOW, 36, 0.55, 2000);
+        fitChar(ctx, fx.boss, 250, 172, 100, 90, { tint: '#ffffff', alpha: Math.max(0, 0.6 - since / 1500) }, 1.8);
+        ch(ctx, 'koori', 90, 174, { scale: 3.6, frame: frameOf(t, 200) });
+        const pop = 1 + Math.max(0, 0.5 - since / 300);
+        text(ctx, '勝利！', W / 2, 26, { size: 28 * pop, color: '#ffe040', lw: 7, stroke: '#a01010' });
+        if (since > 400) {
+            rect(ctx, 0, 48, W, 40, 'rgba(0,0,0,.7)');
+            text(ctx, '特化ゾーン確定', W / 2, 68, { size: 22, color: rainbow(ctx, 70, 0, 250, 0), lw: 5 });
+        }
+        return;
+    }
+    // 敗北
+    rect(ctx, 0, 0, W, H, vgrad(ctx, 0, H, ['#1a1428', '#2a2238', '#0a0812']));
+    fitChar(ctx, fx.boss, 236, 168, 120, big ? 130 : 100, { frame: frameOf(t, 400) }, 2.4);
+    ch(ctx, 'kooriDown', 80, 150, { scale: 3 });
+    rect(ctx, 0, 0, W, H, 'rgba(0,0,30,.35)');
+    text(ctx, '撃破ならず…', W / 2, 50, { size: 24, color: '#a0b0c0', lw: 5, stroke: '#101018' });
 }

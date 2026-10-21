@@ -16,7 +16,8 @@ const leftCherry = cols => cols[0].includes('cherry');
 const left = (cols, pattern) => pattern.every((p, row) => (p === 'bonus' ? isBonus(cols[0][row]) : cols[0][row] === p));
 
 // レア役の停止形 (仕様書「レア役の停止形」)。ほかの役の形と紛れないものだけを通す
-const chanceA = cols => left(cols, ['bell', 'replay', 'bonus']) && cols[1][2] === 'bell' && cols[2][0] === 'bell';
+// チャンス目A はベルの小V (左上段・中中段・右上段)。中段はリプレイ・ベル・リプレイで入賞しない (仕様書 2026-10-21)
+const chanceA = cols => left(cols, ['bell', 'replay', 'bonus']) && cols[1][1] === 'bell' && cols[2][0] === 'bell' && cols[2][1] === 'replay';
 const chanceB = cols => left(cols, ['suika', 'bell', 'replay']) && cols[1][1] === 'suika' && cols[2][1] === 'suika' && isBonus(cols[2][2]);
 const plain = cols => !leftCherry(cols) && !suikaLine(cols) && !chanceA(cols) && !chanceB(cols);
 
@@ -30,13 +31,12 @@ export const SHAPES = {
     weakSuika: cols => left(cols, ['suika', 'bell', 'replay']) && cols[1][1] === 'suika' && cols[2][2] === 'suika' && !middleWin(cols),
     strongSuikaA: cols => left(cols, ['suika', 'bell', 'replay']) && cols[1][0] === 'suika' && cols[2][0] === 'suika' && !middleWin(cols),
     strongSuikaB: cols => left(cols, ['replay', 'suika', 'bell']) && cols[1][1] === 'suika' && cols[2][1] === 'suika',
-    // 仕様書のチャンス目A は配列 v1.0 だと中段にリプレイが並ぶ (確認待ち)。仮組ではそのまま使う
-    chanceA,
+    chanceA: cols => chanceA(cols) && !middleWin(cols),
     chanceB: cols => chanceB(cols) && !middleWin(cols),
     // ボーナス図柄・こおりくん揃い (中段)
     big: cols => middleWin(cols) === 'big',
     reg: cols => middleWin(cols) === 'reg',
-    epbig: cols => middleWin(cols) === 'epbig',
+    epbig: cols => middleWin(cols) === 'koori',
     koori: cols => middleWin(cols) === 'koori'
 };
 

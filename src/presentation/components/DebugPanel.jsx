@@ -86,6 +86,16 @@ export default function DebugPanel({ game }) {
                 <button type="button" onClick={() => d.tokka && d.tokka()}>特化ゾーン（AT 中）</button>
             </div>
 
+            <h3>AT 中</h3>
+            <div className="debug-buttons">
+                <button type="button" onClick={() => d.atBonus && d.atBonus('big')}>AT 中の BIG</button>
+                <button type="button" onClick={() => d.atBonus && d.atBonus('reg')}>AT 中の REG</button>
+                <button type="button" onClick={() => d.atBonus && d.atBonus('epbig')}>AT 中のエピソードBIG</button>
+                <button type="button" onClick={() => d.startZencho({ real: true, team: team || null })}>AT 中の本前兆（8G）</button>
+                <button type="button" onClick={() => d.startZencho({ real: false, team: team || null })}>AT 中のガセ前兆（8G）</button>
+                <button type="button" onClick={() => d.atEndSoon && d.atEndSoon()}>AT の残りを 3G に</button>
+            </div>
+
             <h3>オート</h3>
             <div className="debug-buttons">
                 <button type="button" onClick={() => game.setAuto(!game.auto)}>{game.auto ? 'オートを止める' : 'オートで回す'}</button>

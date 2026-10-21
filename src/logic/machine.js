@@ -2,7 +2,7 @@
 // 台の内部処理 (仮組)
 // ---------------------------------------------------------------------
 // 演出の確認のための仮の内部処理。通常時 (モード・ゾーン・ステート・前兆・天井・AT直撃) は仕様書に沿って動き、
-// ボーナス・AT は最小限 (ゲーム数を消化して戻る) だけ作ってある。
+// ボーナス・AT・特化ゾーンは、演出の確認ができる最小限 (AT 中のボーナス・前兆・ラストジャッジ・ミス・順押しナビを含む) だけ作ってある。
 // 本物の内部処理と入れ替えるときは、createMachine が返すもの (下の「台の窓口」) とイベント (events.js) をそろえればよい。
 // =====================================================================
 
@@ -13,6 +13,11 @@ import { createReelControl } from './reelControl.js';
 import { gridAt, middleWin } from './reels.js';
 
 const RARE = ['weakCherry', 'strongCherry', 'midCherry', 'weakSuika', 'strongSuika', 'chance'];
+// 押し順ベルのナビ (仕様書: 中押し・右押しの4択。順押しナビ [0, 1, 2] は当選確定のときだけ)
+const NAVS = [[1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+const HOT_NAV = [0, 1, 2];
+// 役で払い出す小役 (ラインに関係なく役で判定。仕様書 2026-10-21)。チャンス目はリプレイ扱い
+const ROLE_WIN = { weakCherry: 'cherry', strongCherry: 'cherry', midCherry: 'cherry', weakSuika: 'suika', strongSuika: 'suika', chance: 'replay' };
 const BOSS_FLOORS = { 22: 30, 33: 25, 44: 20, 55: 15, 56: 10 };
 const TEAMS = ['fiveDX', 'ask3', 'muscle'];
 
@@ -144,24 +149,22 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         zencho.button = rng.weighted(config.show.button.real);
     }
 
-    // ボーナス当選 (前兆の終わり・天井)。モード移行とゲーム数のリセットはここで行う (仕様書)
+    // ボーナス当選 (前兆の終わり・天井・ラストジャッジ)。モード移行とゲーム数のリセットはここで行う (仕様書)
+    // AT 中に当たったボーナスは AT 中のボーナス (inAt): こおりくん揃いは特化ゾーン確定。AT のゲーム数は止まったまま
     function winBonus(type) {
         s.mode = rng.weighted(config.modeMove[s.mode]);
         s.normalGames = 0;
         s.plan = makePlan(s.mode);
         s.phase = 'standby';
-        s.bonus = { type, left: 0, atWon: false, nerae: false };
+        s.bonus = { type, left: 0, atWon: false, nerae: false, inAt: Boolean(s.at), boss: null, bossWin: false };
         emit(E.BONUS_STANDBY, { bonus: type, stock: s.stock.length });
     }
 
-    // ----- 1ゲーム -----
-    function normalGame(role) {
-        s.normalGames++;
-        const notices = [];
+    // ゾーンの開始と天井 (ガセを含めて必ず前兆に入る)。通常時と AT 中 (AT 中に消化したゲーム数も数える) で使う
+    function checkZone() {
         const g = s.normalGames;
-
-        // ゾーンの開始 (ガセを含めて必ず前兆に入る) と天井
         const plan = s.plan;
+        const inAt = s.phase === 'at';
         if (plan.kind === 'ceiling' && g === plan.start + 1) {
             if (!s.zencho) {
                 startZencho({ real: true, cause: 'tenjo', length: plan.length, bonus: 'big' });
@@ -175,8 +178,10 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             const start = g - 1;
             const planned = plan.kind === 'zone' && plan.start === start;
             if (!s.zencho) {
-                s.zone = { start };
-                emit(E.ZONE, { active: true, start });
+                if (!inAt) {
+                    s.zone = { start };
+                    emit(E.ZONE, { active: true, start });
+                }
                 startZencho({
                     real: planned,
                     cause: 'zone',
@@ -187,8 +192,46 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                 if (!s.zencho.real) makeReal(s.zencho, bonusType(s.mode));
                 else s.stock.push(bonusType(s.mode));
             }
-            if (start === 50 && s.mode === 'heaven') emit(E.HEAVEN, { who: rng.chance(config.show.aruaruShare) ? 'aruaru' : 'naitei' });
+            if (!inAt && start === 50 && s.mode === 'heaven') emit(E.HEAVEN, { who: rng.chance(config.show.aruaruShare) ? 'aruaru' : 'naitei' });
         }
+    }
+
+    // レア役でボーナスに当たった (通常時・AT 中)。前兆中なら本物に変えるか 1G連 のストック、なければ前兆を始める
+    function rareBonus(type) {
+        if (s.zencho && s.zencho.real) s.stock.push(type);
+        else if (s.zencho) makeReal(s.zencho, type);
+        else startZencho({ real: true, cause: 'rare', length: rng.int(...config.zenchoLength), bonus: type });
+    }
+
+    // 強レア役でボーナスに当たらなかったときのガセ前兆 (仕様書 2026-10-21。弱レア役はなし)
+    function rareGase(role) {
+        if (!s.zencho && rng.chance((config.rareGase[role] || 0) / 100)) {
+            startZencho({ real: false, cause: 'rare', length: rng.int(...config.zenchoLength), bonus: null });
+        }
+    }
+
+    // 前兆の1ゲーム (通常時・AT 中)。最後の数ゲームは連続演出、それまではときどきカットイン
+    function zenchoGame(notices) {
+        const z = s.zencho;
+        if (!z) return null;
+        z.left--;
+        if (z.left < z.rounds) {
+            const round = z.rounds - z.left;
+            const final = z.left === 0;
+            emit(E.ZENCHO_BATTLE, { round, of: z.rounds, final, win: final ? z.real : null, button: final ? z.button : null });
+        } else if (rng.chance(config.show.cutinRate)) {
+            notices.push({ kind: 'cutin', timing: 'lever', color: rng.weighted(config.show.cutin[z.real ? 'real' : 'gase']) });
+        }
+        return z.left === 0 ? z : null;
+    }
+
+    // ----- 1ゲーム -----
+    function normalGame(role) {
+        s.normalGames++;
+        const notices = [];
+
+        // ゾーンの開始 (ガセを含めて必ず前兆に入る) と天井
+        checkZone();
 
         // 天国のカットイン
         if ((s.mode === 'heaven' || s.mode === 'superHeaven') && rng.chance(config.show.heavenCutinRate)) {
@@ -199,13 +242,13 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         if (RARE.includes(role)) {
             const won = rng.chance(config.rareBonus[s.state][role] / 100);
             if (won) {
-                const type = role === 'weakSuika' ? 'epbig' : bonusType(s.mode);
-                if (s.zencho && s.zencho.real) s.stock.push(type);
-                else if (s.zencho) makeReal(s.zencho, type);
-                else startZencho({ real: true, cause: 'rare', length: rng.int(...config.zenchoLength), bonus: type });
-            } else if (s.state !== 'super') {
-                const up = config.stateUp[s.state][role] || 0;
-                if (rng.chance(up / 100)) setState(s.state === 'low' ? 'high' : 'super');
+                rareBonus(role === 'weakSuika' ? 'epbig' : bonusType(s.mode));
+            } else {
+                rareGase(role);
+                if (s.state !== 'super') {
+                    const up = config.stateUp[s.state][role] || 0;
+                    if (rng.chance(up / 100)) setState(s.state === 'low' ? 'high' : 'super');
+                }
             }
             if (rng.chance(config.show.sakibare[role] || 0)) notices.push({ kind: 'sakibare', timing: 'lever', pitch: 'normal' });
             if (rng.chance(config.show.flashRate) || role === 'midCherry') notices.push({ kind: 'flash', timing: 'afterStop', level: config.show.flash[role] });
@@ -231,19 +274,7 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         }
 
         // 前兆の進み
-        let zenchoEnd = null;
-        if (s.zencho) {
-            const z = s.zencho;
-            z.left--;
-            if (z.left < z.rounds) {
-                const round = z.rounds - z.left;
-                const final = z.left === 0;
-                emit(E.ZENCHO_BATTLE, { round, of: z.rounds, final, win: final ? z.real : null, button: final ? z.button : null });
-            } else if (rng.chance(config.show.cutinRate)) {
-                notices.push({ kind: 'cutin', timing: 'lever', color: rng.weighted(config.show.cutin[z.real ? 'real' : 'gase']) });
-            }
-            if (z.left === 0) zenchoEnd = z;
-        }
+        const zenchoEnd = zenchoGame(notices);
 
         return { notices, direct, zenchoEnd };
     }
@@ -266,18 +297,61 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         if (s.phase === 'normal') updateStage();
     }
 
-    // ----- ボーナス (仮組の最小限) -----
+    // ----- ボーナス (仮組) -----
+    // 当選したゲームのレバーで「こおりを狙え」(仕様書: 当選 → カットイン → こおりくん揃い)。
+    // AT 中のボーナスは、最初のゲームで相手が登場し、揃ったゲームの終わりに勝利、当たらないまま最後のゲームなら敗北 (docs/events.md)
+    // 戻り値: このゲームの出目の形 (狙えのときは 'koori')
     function bonusGame(role) {
         const b = s.bonus;
+        let shape = null;
+        if (b.inAt && b.type !== 'epbig' && b.left === config.bonusGames[b.type]) {
+            b.boss = rng.weighted(config.show.boss[b.willWin ? 'win' : 'lose']);
+            emit(E.AT_BOSS, { boss: b.boss, final: false, win: null });
+        }
+        // 通常のボーナスは役で抽選。AT 中のボーナスは、始まりで決めたゲーム (winAt) で当てる (相手を当たりやすさに合わせるため)【仮組】
+        const hit = b.inAt
+            ? b.willWin && b.left === b.winAt
+            : RARE.concat('bell').includes(role) && rng.chance((config.bonusAt[role] || 0) / 100);
+        if (!b.atWon && b.type !== 'epbig' && hit) {
+            b.atWon = true;
+            emit(E.BONUS_NERAE, { color: rng.weighted(config.show.cutin.real), win: true });
+            shape = 'koori';
+            if (b.inAt) b.bossWin = true;
+        } else if (b.inAt && b.type !== 'epbig' && !b.atWon && b.left === 1) {
+            emit(E.AT_BOSS, { boss: b.boss, final: true, win: false });
+        }
         b.left--;
-        if (!b.atWon && RARE.concat('bell').includes(role) && rng.chance((config.bonusAt[role] || 0) / 100)) b.atWon = true;
         emit(E.BONUS_GAME, { bonus: b.type, left: b.left });
+        return shape;
     }
 
     function finishBonus() {
         const b = s.bonus;
+        // AT 中のボーナス: こおりくんが揃ったゲームの終わりに勝利
+        if (b.bossWin) {
+            b.bossWin = false;
+            emit(E.AT_BOSS, { boss: b.boss, final: true, win: true });
+        }
         if (b.left > 0) return;
-        const at = b.atWon || b.type === 'epbig';
+        const won = b.atWon || b.type === 'epbig';
+        if (b.inAt) {
+            // AT 中のボーナスのあとは AT に戻る (当たっていたら特化ゾーンから)
+            emit(E.BONUS_END, { bonus: b.type, at: false, stock: s.stock.length });
+            s.bonus = null;
+            if (won) s.tokkaStock++;
+            if (s.stock.length) {
+                // 1G連 (AT 中のボーナスのまま)
+                s.phase = 'standby';
+                const type = s.stock.shift();
+                s.bonus = { type, left: 0, atWon: false, nerae: false, inAt: true, boss: null, bossWin: false };
+                emit(E.BONUS_STANDBY, { bonus: type, stock: s.stock.length });
+                return;
+            }
+            s.phase = 'at';
+            finishAt({});
+            return;
+        }
+        const at = won;
         emit(E.BONUS_END, { bonus: b.type, at, stock: s.stock.length });
         s.bonus = null;
         if (s.stock.length) {
@@ -304,22 +378,45 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         emit(E.AT_START, { games: config.at.games, cause });
     }
 
+    // AT の1ゲーム。AT 中に消化したゲーム数も規定ゲーム数に数える (仕様書)。前兆もここで進める
     function atGame(role) {
         const a = s.at;
+        const notices = [];
         a.left--;
-        const nav = role === 'bell' ? rng.pick([[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]) : null;
+        s.normalGames++;
+        checkZone();
+        // 押し順ベルのナビ: ふだんは中押し・右押しの4択。順押しナビはボーナスか特化ゾーンの当選が確定 (仮組では特化ゾーン)
+        let nav = null;
+        if (role === 'bell') {
+            if (rng.chance(config.at.hotNavRate)) {
+                nav = HOT_NAV;
+                s.tokkaWon = true;
+            } else nav = rng.pick(NAVS);
+        }
         emit(E.AT_GAME, { left: a.left, nav });
         if (RARE.includes(role)) {
-            // 特化ゾーン (仕様書: レア役はボーナス・特化ゾーン・直接上乗せのどれか1つ。仮組はボーナスなし)
-            if (rng.chance((config.tokka.rate[role] || 0) / 100)) {
+            // 仕様書: レア役はボーナス・特化ゾーン・直接上乗せのどれか1つ (ボーナス → 特化ゾーン → 直接上乗せの順に抽選)
+            const r = rng.next() * 100;
+            const bonusRate = config.at.bonusRate[role] || 0;
+            if (r < bonusRate) {
+                rareBonus(role === 'weakSuika' ? 'epbig' : bonusType(s.mode));
+            } else if (r < bonusRate + (config.tokka.rate[role] || 0)) {
                 s.tokkaWon = true;
-                return;
+            } else {
+                rareGase(role);
+                const table = config.at.directAdd[role];
+                const add = table ? Number(rng.weighted(table)) : 0;
+                if (add > 0) {
+                    a.left += add;
+                    a.total += add;
+                    emit(E.AT_ADD, { games: add, left: a.left, ...attackFor(add) });
+                } else {
+                    emit(E.AT_MISS, { attacker: rng.pick(['yasu', 'tamu', 'dake']), enemy: 'harry' });
+                }
             }
-            const add = Number(rng.weighted(config.at.addTable));
-            a.left += add;
-            a.total += add;
-            emit(E.AT_ADD, { games: add, left: a.left, ...attackFor(add) });
         }
+        const zenchoEnd = zenchoGame(notices);
+        return { notices, zenchoEnd };
     }
 
     // 上乗せの見せ方 (画面設計書 5-2 の案: 上乗せが大きいほど強い攻撃・強い相手)
@@ -331,14 +428,39 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         return { attacker: 'kill', enemy: 'goldDog' };
     }
 
-    function finishAt() {
+    // AT のゲームの終わり。前兆の終わり → 特化ゾーンのストック → 残り 0G の順に見る
+    function finishAt(result) {
+        const z = result.zenchoEnd;
+        if (z) {
+            s.zencho = null;
+            emit(E.ZENCHO_END, { win: z.real, bonus: z.real ? z.bonus : null });
+            if (z.real) {
+                if (z.cause === 'tenjo') emit(E.TENJO, { who: rng.chance(config.show.tenjoAruaru) ? 'aruaru' : 'naitei' });
+                winBonus(z.bonus);
+                return;
+            }
+        }
         // 特化ゾーンのストックがあれば、次のゲームから特化ゾーン (AT のゲーム数が 0 でも)
         if (s.tokkaStock > 0) {
             startTokka();
             return;
         }
         if (s.at.left > 0) return;
-        emit(E.AT_END, { games: s.at.total, payout: s.at.payout });
+        // 前兆の途中でゲーム数がなくなった: その場で当落を告知 (仕様書 2026-10-21。ラストジャッジ)
+        if (s.zencho) {
+            const zz = s.zencho;
+            s.zencho = null;
+            emit(E.AT_JUDGE, { win: zz.real, bonus: zz.real ? zz.bonus : null });
+            if (zz.real) {
+                winBonus(zz.bonus);
+                return;
+            }
+        }
+        endAt();
+    }
+
+    function endAt() {
+        emit(E.AT_END, { games: s.at.total, payout: s.at.payout, hint: rng.weighted(config.show.hint[s.setting] || config.show.hint[1]) });
         s.at = null;
         s.phase = 'normal';
         updateStage();
@@ -430,18 +552,14 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                 shape = s.bonus.type;
             } else if (s.phase === 'bonus') {
                 role = s.forcedRole || drawRole(config.bonusRoles, 1);
-                if (s.bonus.atWon && !s.bonus.nerae) {
-                    s.bonus.nerae = true;
-                    emit(E.BONUS_NERAE, { color: rng.weighted(config.show.cutin.real), win: true });
-                    shape = 'koori';
-                }
-                bonusGame(role);
+                shape = bonusGame(role);
             } else if (s.phase === 'at' && s.tokka) {
                 role = s.forcedRole || tokkaRole();
                 tokkaGame(role);
             } else if (s.phase === 'at') {
                 role = s.forcedRole || (rng.chance(1 / config.at.rareRate) ? rng.pick(RARE) : rng.chance(1 / config.at.bellRate) ? 'bell' : 'none');
-                atGame(role);
+                result = atGame(role);
+                result.notices.forEach(n => { if (n.timing === 'lever') emit(E.NOTICE, n); });
             } else {
                 const boost = 1 + config.rareBoost * (s.setting - 1);
                 role = s.forcedRole || drawRole(config.roles, boost);
@@ -500,10 +618,11 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             setGames: n => { s.normalGames = n; },
             // 前兆を始める (real: 本物か / team: 相手チーム / length: ゲーム数)
             startZencho: ({ real = true, team = null, length = 8 } = {}) => {
-                if (s.phase !== 'normal' || s.zencho) return;
-                startZencho({ real, cause: 'zone', length, bonus: real ? bonusType(s.mode) : null });
+                const inAt = s.phase === 'at' && !s.tokka;
+                if ((s.phase !== 'normal' && !inAt) || s.zencho) return;
+                startZencho({ real, cause: inAt ? 'rare' : 'zone', length, bonus: real ? bonusType(s.mode) : null });
                 if (team && TEAMS.includes(team)) s.zencho.team = team;
-                updateStage();
+                if (!inAt) updateStage();
             },
             ceilingSoon: () => {
                 const ceiling = config.modes[s.mode].ceiling;
@@ -514,16 +633,22 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             bonus: type => { if (s.phase === 'normal' && !s.zencho) winBonus(type); },
             heaven: who => emit(E.HEAVEN, { who }),
             // 特化ゾーンをストックする (AT 中だけ。次のゲームの終わりで告知)
-            tokka: () => { if (s.phase === 'at') s.tokkaWon = true; }
+            tokka: () => { if (s.phase === 'at') s.tokkaWon = true; },
+            // AT 中にボーナス確定にする (AT 中のボーナス。docs/events.md 3章)
+            atBonus: (type = 'big') => { if (s.phase === 'at' && !s.tokka && !s.spin) winBonus(type); },
+            // AT の残りを数ゲームにする (終了画面・ラストジャッジの確認)
+            atEndSoon: () => { if (s.at) s.at.left = Math.min(s.at.left, 3); }
         }
     };
 
     function endGame() {
         const spin = s.spin;
         const cols = gridAt(spin.control.tops);
-        const win = middleWin(cols);
+        // 中段の入賞か、役で払い出す小役 (チェリー・スイカ。チャンス目はリプレイ扱い)
+        const ownShape = spin.shape !== 'koori';
+        const win = middleWin(cols) || (ownShape ? ROLE_WIN[spin.role] || null : null);
         const payout = config.payout[spin.role] || 0;
-        if (spin.role === 'replay' || (spin.shape === 'chanceA' && win === 'replay')) s.free = true;
+        if (spin.role === 'replay' || spin.role === 'chance') s.free = true;
         s.credit += payout;
         s.paidOut += payout;
         if (s.at) s.at.payout += payout;
@@ -532,9 +657,15 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         s.spin = null;
 
         if (s.phase === 'standby') {
+            const b = s.bonus;
             s.phase = 'bonus';
-            s.bonus.left = config.bonusGames[s.bonus.type];
-            emit(E.BONUS_START, { bonus: s.bonus.type, games: s.bonus.left });
+            b.left = config.bonusGames[b.type];
+            if (b.inAt) {
+                // AT 中のボーナスで特化ゾーンに当たるか・何ゲーム目かを先に決める【仮組】(BIG 約40%・REG 約20%)
+                b.willWin = rng.chance(b.type === 'reg' ? 0.2 : 0.4);
+                b.winAt = rng.int(2, b.left - 1);
+            }
+            emit(E.BONUS_START, { bonus: b.type, games: b.left, inAt: b.inAt });
         } else if (s.phase === 'bonus') finishBonus();
         else if (s.phase === 'at') {
             if (s.tokkaWon) {
@@ -543,7 +674,7 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                 emit(E.TOKKA_STOCK, { stock: s.tokkaStock });
             }
             if (s.tokka) finishTokkaGame();
-            else finishAt();
+            else finishAt(spin.result || {});
         }
         else finishNormal(spin.result);
     }

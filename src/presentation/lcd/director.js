@@ -13,18 +13,22 @@ import {
     TEAMS, drawBattle, drawCutin, drawDirect, drawElevator, drawFlash, drawFloor, drawHeaven,
     drawMiddle, drawNavi, drawStandby, drawTenjo
 } from './scenes.js';
-import { END_MS, ENTRY_MS, KAKUTEI_MS, drawAtKakutei, drawBonusEnd, drawBonusScreen, drawNerae } from './bonus.js';
+import { BOSS_MS, END_MS, ENTRY_MS, KAKUTEI_MS, drawAtKakutei, drawBonusEnd, drawBonusScreen, drawBossFx, drawNerae } from './bonus.js';
 import { BIG_CARDS, EPISODES, REG_CARDS } from './bonusStory.js';
 import {
     INTRO_MS, OPEN_STEP_MS, RESULT_MS, STOCK_MS, TOKKA_END_MS, drawTokka, drawTokkaEnd, drawTokkaIntro, drawTokkaSelect, drawTokkaStock
 } from './tokka.js';
-import { ATTACKS, ATTACK_MS, COUNT_MS, END_MS as AT_END_MS, START_MS, drawAtCount, drawAtEnd, drawAtMain, drawAtStart, drawAttack } from './at.js';
+import {
+    ATTACKS, ATTACK_MS, COUNT_MS, END_MS as AT_END_MS, START_MS, drawAtCount, drawAtEnd, drawAtJudge, drawAtMain, drawAtStart, drawAttack, atBadge
+} from './at.js';
 
 // 残りゲーム数を大きく出すとき (画面設計書 5-1 の案)
 const COUNT_AT = [10, 5, 3, 2, 1];
 const PUSH_WAIT_MS = 5000;     // 武器の攻撃で PUSH を待つ時間 (押さなくても進む)
 const LONG_PRESS_MS = 900;     // コオリハンマーの長押しでゲージがたまる時間
 const SELECT_MS = 10000;       // 特化ゾーンのパターンを選ぶ時間 (たったら、そのとき選んでいるほうで始める。画面設計書 6章の案)
+const JUDGE_WAIT_MS = 4000;    // ラストジャッジで PUSH を待つ時間 (押さなくても進む)
+const JUDGE_RESULT_MS = 2400;  // ラストジャッジの結果を見せる時間
 
 // 特化ゾーンのパターンは、前に選んだほうを最初に選んでおく (このブラウザに覚えておく)
 function savedPattern() {
@@ -77,6 +81,8 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         tokka: null,       // 特化ゾーン: { pattern, choice, set, games, gained, guarantee, phase, since, shownTotal, pop, kakuteiAt, result, pending }
         tokkaFx: null,     // 特化ゾーン当選のフリーズ風の告知: { since, stock }
         tokkaEnd: null,    // 特化ゾーン終了の画面
+        bossFx: null,      // AT 中のボーナスの相手の登場・勝利・敗北: { kind, boss, since }
+        judge: null,       // AT 0G の当落告知 (ラストジャッジ): { team, win, bonus, phase, since }
         at: null,
         direct: null,
         tenjo: null,
@@ -89,7 +95,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         lastPayout: 0
     };
     const queue = [];
-    let hold = null;      // { reels } | { until, then } | { push: 'battle' | 'attack' | 'select', timeout }
+    let hold = null;      // { reels } | { until, then } | { push: 'battle' | 'attack' | 'select' | 'judge', timeout }
     let pressing = false; // PUSH ボタンを押しているあいだ (コオリハンマーの長押し)
     let now = performance.now();
     const timers = [];
@@ -132,10 +138,12 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         }
     }
 
+    // AT 中のボーナスでは、揃ったあとに相手との勝負の結果 (at:boss の勝利 → 特化ゾーン確定) を見せるので、
+    // ここでは文字を出さずに短く光らせるだけにする (内部処理の担当の希望: 狙え → 揃い → 勝利 の順)
     function revealKoori() {
         v.nerae.phase = 'hit';
         if (v.bonus) v.bonus.at = true;
-        v.kakutei = { since: now, label: atLabel() };
+        v.kakutei = { since: now, label: v.bonus && v.bonus.inAt ? '' : atLabel() };
         sound.play('kooriAlign');
         after(250, () => sound.play('atKakutei'));
         setButton('rainbow', { pop: true });
@@ -146,10 +154,10 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
     function startAttack(e) {
         const atk = ATTACKS[e.attacker] || ATTACKS.yasu;
         pressing = false;
-        v.attack = { attacker: e.attacker, enemy: e.enemy, games: e.games, left: e.left, phase: 'appear', since: now, gauge: 0, pushes: 0 };
+        v.attack = { attacker: e.attacker, enemy: e.enemy, games: e.games || 0, left: e.left, miss: Boolean(e.miss), phase: 'appear', since: now, gauge: 0, pushes: 0 };
         sound.play('cutin');
         wait(ATTACK_MS.appear, () => {
-            if (!atk.weapon) return hitAttack();
+            if (!atk.weapon || e.miss) return hitAttack();
             v.attack.phase = 'push';
             v.attack.since = now;
             setButton(atk.weapon === 'kill' ? 'rainbow' : atk.weapon === 'hammer' ? 'blue' : 'white', { pop: atk.weapon === 'kill' });
@@ -175,6 +183,17 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         hold = null;
         a.phase = 'hit';
         a.since = now;
+        // ミス (at:miss): 相手がよけて、上乗せなし
+        if (a.miss) {
+            after(300, () => sound.play('push'));
+            wait(ATTACK_MS.hit, () => {
+                a.phase = 'result';
+                a.since = now;
+                sound.play('lose');
+                wait(ATTACK_MS.result - 500, () => { v.attack = null; });
+            });
+            return;
+        }
         setButton(a.games >= 300 ? 'rainbow' : 'gold', { pop: a.games >= 300 });
         after(300, () => sound.play('clash'));
         wait(ATTACK_MS.hit, () => {
@@ -306,7 +325,10 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             v.lastPayout = e.payout;
             if (v.bonus) v.bonus.payout += e.payout;
             if (v.at) v.at.payout += e.payout;
-            if (e.win) reels.highlight([[0, 1], [1, 1], [2, 1]], e.win === 'replay' ? '#3a86ff' : '#ffe040');
+            // 中段に揃ったときだけ中段を光らせる (チェリー・スイカ・チャンス目は中段の入賞ではない)
+            const mid = e.cols.map(col => col[1]);
+            const line = (mid[0] === mid[1] && mid[1] === mid[2]) || e.win === 'reg';
+            if (e.win && line) reels.highlight([[0, 1], [1, 1], [2, 1]], e.win === 'replay' ? '#3a86ff' : '#ffe040');
             if (e.payout) sound.play('payout');
             else if (e.win === 'replay') sound.play('replay');
             changed();
@@ -315,7 +337,8 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             if (v.nerae) {
                 if (e.win === 'koori' && v.nerae.phase !== 'hit') revealKoori();
                 if (v.nerae.phase === 'hit') {
-                    wait(Math.max(0, KAKUTEI_MS - (now - v.kakutei.since)), () => { v.kakutei = null; });
+                    const ms = v.bonus && v.bonus.inAt ? 1000 : KAKUTEI_MS;
+                    wait(Math.max(0, ms - (now - v.kakutei.since)), () => { v.kakutei = null; });
                 } else {
                     v.nerae.phase = 'miss';
                     v.nerae.endAt = now;
@@ -325,8 +348,18 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
                 return;
             }
 
+            // 前兆の最後のバトル (通常時・AT 中): PUSH を待つ
+            if (v.battle && v.battle.final) {
+                v.nav = null;
+                if (v.at) v.at.nav = null;
+                v.battle.phase = 'push';
+                setButton(v.battle.button, { pop: v.battle.button === 'gold' || v.battle.button === 'rainbow' });
+                hold = { push: 'battle', timeout: now + 6000 };
+                return;
+            }
+
             // AT: 押し順ナビを消して、上乗せがあれば攻撃を見せる
-            if (v.at) {
+            if (v.at && v.phase === 'at') {
                 v.nav = null;
                 v.at.nav = null;
                 changed();
@@ -339,13 +372,6 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
                 return;
             }
 
-            // 前兆の最後のバトル: PUSH を待つ
-            if (v.battle && v.battle.final) {
-                v.battle.phase = 'push';
-                setButton(v.battle.button, { pop: v.battle.button === 'gold' || v.battle.button === 'rainbow' });
-                hold = { push: 'battle', timeout: now + 6000 };
-                return;
-            }
             // AT 直撃: 暗転 → こおりいきていける！
             if (v.direct) {
                 v.direct = { phase: 'black', since: now };
@@ -360,6 +386,12 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         },
 
         [E.ZENCHO_START](e) {
+            // AT 中の前兆は、AT の画面のままライバルが出てくる (画面設計書 5-5 の案)
+            if (v.phase === 'at') {
+                v.zencho = { team: e.team, cause: e.cause, since: now };
+                sound.play('cutin');
+                return;
+            }
             v.zencho = { team: e.team, cause: e.cause, since: now + 1300 };
             overlay('elevator', 1300, { from: v.stage.floor, to: null });
             sound.play('elevator');
@@ -434,7 +466,8 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
                 bonus: e.bonus, games: e.games, left: e.games, payout: 0, since: now, cardStart,
                 episode: e.bonus === 'epbig' ? nextEpisode() : 0,
                 // エピソードBIG は AT 確定 (仕様書。AT 中は特化ゾーン確定)
-                at: e.bonus === 'epbig', atLabel: atLabel()
+                at: e.bonus === 'epbig', atLabel: atLabel(),
+                inAt: Boolean(e.inAt), boss: null, tokka: e.inAt && e.bonus === 'epbig'
             };
             setButton(e.bonus === 'epbig' ? 'rainbow' : 'gold');
             sound.play('fanfare');
@@ -455,10 +488,11 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
 
         [E.BONUS_END](e) {
             const b = v.bonus;
-            v.bonusEnd = { bonus: e.bonus, payout: b ? b.payout : 0, at: e.at, stock: e.stock, since: now };
+            v.bonusEnd = { bonus: e.bonus, payout: b ? b.payout : 0, at: e.at, stock: e.stock, inAt: Boolean(b && b.inAt), tokka: Boolean(b && (b.tokka || (b.inAt && b.at))), since: now };
             v.bonus = null;
             v.nerae = null;
-            if (!e.at && !e.stock) v.phase = 'normal';
+            // AT 中のボーナスのあとは AT に戻る (AT のゲーム数はボーナスの間止まっていた)
+            if (!e.at && !e.stock) v.phase = v.at ? 'at' : 'normal';
             sound.play(e.stock || e.at ? 'fanfare' : 'bonusEnd');
             if (e.stock) setButton('gold');
             wait(END_MS, () => { v.bonusEnd = null; });
@@ -482,6 +516,11 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
                 v.at.nav = e.nav;
             }
             v.nav = e.nav;
+            // 順押しナビはボーナスか特化ゾーンの当選が確定 (仕様書): 確定音と虹色のボタン
+            if (e.nav && e.nav[0] === 0) {
+                after(200, () => sound.play('kakutei'));
+                setButton('rainbow', { pop: true });
+            }
             if (COUNT_AT.includes(e.left)) {
                 v.atCount = { left: e.left, since: now };
                 sound.play('count');
@@ -492,6 +531,39 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         // 上乗せはレバーのときに届くが、レア役の出目を見せてから攻撃する (ゲームの終わりで startAttack)
         [E.AT_ADD](e) {
             v.pendingAdd = { ...e };
+        },
+
+        // 上乗せなしのレア役:「ミス！」(画面設計書 5-2)
+        [E.AT_MISS](e) {
+            v.pendingAdd = { ...e, miss: true, games: 0, left: v.at ? v.at.left : 0 };
+        },
+
+        // AT 中のボーナスの相手 (画面設計書 5-3): 登場 (final: false) / 勝利 (こおりくんが揃ったあと) / 敗北 (最後のゲーム)
+        [E.AT_BOSS](e) {
+            if (v.bonus) v.bonus.boss = e.boss;
+            const kind = !e.final ? 'intro' : e.win ? 'win' : 'lose';
+            v.bossFx = { kind, boss: e.boss, since: now };
+            if (kind === 'intro') sound.play('cutin');
+            else sound.play(e.win ? 'win' : 'lose');
+            if (kind === 'win') {
+                if (v.bonus) v.bonus.tokka = true;
+                setButton('rainbow', { pop: true });
+            }
+            wait(BOSS_MS[kind], () => {
+                v.bossFx = null;
+                setButton('white', { lit: false });
+            });
+        },
+
+        // AT 0G の当落告知「ラストジャッジ」(画面設計書 5-4): PUSH (押さなくても進む) で結果
+        [E.AT_JUDGE](e) {
+            v.judge = { team: v.zencho ? v.zencho.team : 'fiveDX', win: e.win, bonus: e.bonus, phase: 'intro', since: now };
+            v.zencho = null;
+            v.battle = null;
+            v.nav = null;
+            sound.play('blackout');
+            setButton('red', { pop: true });
+            hold = { push: 'judge', timeout: now + JUDGE_WAIT_MS };
         },
 
         // ----- 上乗せ特化ゾーン (画面設計書 6章。イベントは docs/events.md 5-5 の案) -----
@@ -553,7 +625,9 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
 
         [E.AT_END](e) {
             const a = v.at || { adds: 0, addTotal: 0, best: 0 };
-            v.atEnd = { games: e.games, payout: e.payout, adds: a.adds, addTotal: a.addTotal, best: a.best, since: now };
+            v.atEnd = { games: e.games, payout: e.payout, adds: a.adds, addTotal: a.addTotal, best: a.best, hint: e.hint || 'team', since: now };
+            v.zencho = null;
+            v.battle = null;
             v.at = null;
             v.nav = null;
             v.atCount = null;
@@ -572,6 +646,20 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
     function pump() {
         while (!hold && queue.length) handle(queue.shift());
         changed();
+    }
+
+    // ラストジャッジの結果を見せる
+    function revealJudge() {
+        const j = v.judge;
+        hold = null;
+        j.phase = 'result';
+        j.since = now;
+        sound.play(j.win ? 'win' : 'lose');
+        setButton(j.win ? 'rainbow' : 'white', { lit: j.win, pop: j.win });
+        wait(JUDGE_RESULT_MS, () => {
+            v.judge = null;
+            setButton('white', { lit: false });
+        });
     }
 
     // 前兆の最後のバトルの結果を見せる
@@ -593,6 +681,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         if (v.atEnd) return 'atEnd';
         // 画面設計書 7-2: 魔王の褒美 不気味で豪華な曲 / こおり大腸炎 ドタバタした曲
         if (v.tokka && v.tokka.pattern && !v.tokkaEnd) return v.tokka.pattern === 'maou' ? 'tokkaMaou' : 'tokkaDaichoen';
+        if (v.phase === 'at' && v.zencho) return 'zencho';
         if (v.phase === 'at') return 'at';
         if (v.zencho) return 'zencho';
         if (v.stage.state === 'super') return 'super';
@@ -616,6 +705,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         }
         if (hold && hold.push && t >= hold.timeout) {
             if (hold.push === 'battle') revealBattle();
+            else if (hold.push === 'judge') revealJudge();
             else if (hold.push === 'select') confirmTokka();
             else hitAttack();
         }
@@ -648,7 +738,13 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             else if (z && z.phase === 'intro') drawTokkaIntro(ctx, t, t - z.since, z.pattern);
             else if (z && z.pattern) drawTokka(ctx, t, z);
             else if (v.attack) drawAttack(ctx, t, v.attack);
-            else drawAtMain(ctx, t, v.at);
+            else if (v.battle && v.zencho) {
+                drawBattle(ctx, t, v.zencho, v.battle);
+                atBadge(ctx, v.at.left);
+            } else if (v.zencho) {
+                drawMiddle(ctx, t, v.zencho);
+                atBadge(ctx, v.at.left);
+            } else drawAtMain(ctx, t, v.at);
             if (v.atCount && !v.attack) drawAtCount(ctx, t, t - v.atCount.since, v.atCount.left);
             if (v.atStart) drawAtStart(ctx, t, t - v.atStart.since, v.atStart.games);
         }
@@ -673,6 +769,8 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         if (v.bonusEnd) drawBonusEnd(ctx, t, t - v.bonusEnd.since, v.bonusEnd);
         if (v.tokkaEnd) drawTokkaEnd(ctx, t, t - v.tokkaEnd.since, v.tokkaEnd);
         if (v.tokkaFx) drawTokkaStock(ctx, t, t - v.tokkaFx.since, v.tokkaFx.stock);
+        if (v.bossFx) drawBossFx(ctx, t, v.bossFx);
+        if (v.judge) drawAtJudge(ctx, t, v.judge);
         if (v.atEnd) drawAtEnd(ctx, t, t - v.atEnd.since, v.atEnd);
         if (v.tenjo) drawTenjo(ctx, t, t - v.tenjo.since, v.tenjo.who);
         if (v.direct) drawDirect(ctx, t, t - v.direct.since, v.direct.phase);
@@ -713,6 +811,11 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             }
             if (hold && hold.push === 'attack') {
                 attackPush();
+                return true;
+            }
+            if (hold && hold.push === 'judge') {
+                sound.play('push');
+                revealJudge();
                 return true;
             }
             if (hold && hold.push) {

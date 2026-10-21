@@ -12,12 +12,12 @@ export const EVENTS = {
     LEVER: 'lever',               // { game, phase, free }  phase: 'normal' | 'standby' | 'bonus' | 'at'
     NOTICE: 'notice',             // { kind, timing, ... }  演出の抽選結果 (下の NOTICE_KINDS)
     REEL_STOP: 'reel:stop',       // { reel, top, slip, order }  top: 止まった上段の番号 (リール配列 v1.0)
-    GAME_END: 'game:end',         // { cols, win, payout, credit }  win: 中段の入賞 ('bell' | 'replay' | 'big' | … | null)
+    GAME_END: 'game:end',         // { cols, win, payout, credit }  win: 'bell' | 'replay' | 'cherry' | 'suika' | 'big' | 'reg' | 'koori' | null
 
     // ----- 通常時 -----
     STAGE: 'stage',               // { place, floor, state }  place: 'floor' | 'middle'(前兆の中間階層)。floor: 階 / state: 'low' | 'high' | 'super'
     ZONE: 'zone',                 // { active, start }  魔天ゾーンに入った・出た
-    ZENCHO_START: 'zencho:start', // { team, games, cause }  team: 'fiveDX' | 'ask3' | 'muscle' / cause: 'zone' | 'rare' | 'tenjo'
+    ZENCHO_START: 'zencho:start', // { team, games, cause }  team: 'fiveDX' | 'ask3' | 'muscle' / cause: 'zone' | 'rare' | 'tenjo' | 'stock'。AT 中にも出る
     ZENCHO_BATTLE: 'zencho:battle', // { round, of, final, win, button }  最後の連続演出。final のときだけ win が意味を持つ
     ZENCHO_END: 'zencho:end',     // { win, bonus }  前兆の終わり (win: 相手チームを倒した = ボーナス確定)
     HEAVEN: 'heaven',             // { who }  天国のカットイン ('naitei' | 'aruaru')
@@ -25,19 +25,22 @@ export const EVENTS = {
     DIRECT: 'at:direct',          // {}  AT 直撃 (このゲームの演出のあと AT が始まる)
 
     // ----- 疑似ボーナス -----
-    BONUS_STANDBY: 'bonus:standby', // { bonus, stock }  ボーナス確定。次のゲームで図柄がそろう (bonus: 'big' | 'reg' | 'epbig')
-    BONUS_START: 'bonus:start',   // { bonus, games }
+    BONUS_STANDBY: 'bonus:standby', // { bonus, stock }  ボーナス確定。次のゲームで図柄がそろう (bonus: 'big' 7・7・7 | 'reg' 7・7・BAR | 'epbig' こおりくん×3)
+    BONUS_START: 'bonus:start',   // { bonus, games, inAt }  inAt: AT 中のボーナス
     BONUS_GAME: 'bonus:game',     // { bonus, left }
     BONUS_NERAE: 'bonus:nerae',   // { color, win }  「こおりを狙え」カットイン (win: こおりくんがそろう)
     BONUS_END: 'bonus:end',       // { bonus, at, stock }  at: AT へ / stock: 残りの 1G連 の数
 
-    // ----- AT (仮組は最小限) -----
+    // ----- AT -----
     AT_START: 'at:start',         // { games, cause }  cause: 'bonus' | 'direct'
-    AT_GAME: 'at:game',           // { left, nav }  nav: 押し順 [リール番号, …] (ナビのないゲームは null)
+    AT_GAME: 'at:game',           // { left, nav }  nav: 押し順 [リール番号, …] (ナビのないゲームは null)。nav[0] が 0 (順押し) は当選確定
     AT_ADD: 'at:add',             // { games, left, attacker, enemy }  上乗せ。attacker: 'yasu' | 'tamu' | 'dake' | 'onioni' | 'sword' | 'hammer' | 'kill' / enemy: キャラの id
-    AT_END: 'at:end',             // { games, payout }
+    AT_MISS: 'at:miss',           // { attacker, enemy }  上乗せなしのレア役 (「ミス！」)
+    AT_BOSS: 'at:boss',           // { boss, final, win }  AT 中のボーナスの相手 (登場 / 勝利 / 敗北)
+    AT_JUDGE: 'at:judge',         // { win, bonus }  前兆中に AT のゲーム数がなくなったときの当落告知
+    AT_END: 'at:end',             // { games, payout, hint }  hint: 設定示唆の画像
 
-    // ----- 上乗せ特化ゾーン (演出側の提案。docs/events.md 5-5。内部処理の担当の確認待ち) -----
+    // ----- 上乗せ特化ゾーン -----
     TOKKA_STOCK: 'tokka:stock',   // { stock }  特化ゾーンに当たった (当たったゲームの終わり)
     TOKKA_START: 'tokka:start',   // { stock }  特化ゾーンが始まる (次のレバーから)
     TOKKA_GAME: 'tokka:game',     // { set, game, add, guarantee }  特化ゾーンの1ゲーム (レバーのとき)

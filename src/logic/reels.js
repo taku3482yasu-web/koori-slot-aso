@@ -15,7 +15,7 @@ export const STRIPS = [
 
 export const REEL_LENGTH = 21;
 
-// ボーナス図柄 (仕様書: BAR・7・こおりくんの3種)
+// ボーナス図柄 (仕様書: BAR・7・こおりくんの3種。7・7・7 = BIG / 7・7・BAR = REG / こおりくん×3 = エピソードBIG)
 export const BONUS_SYMBOLS = new Set(['bar', 'seven', 'koori']);
 
 export const wrap = i => ((i % REEL_LENGTH) + REEL_LENGTH) % REEL_LENGTH;
@@ -31,12 +31,12 @@ export function gridAt(tops) {
 }
 
 // 中段 (入賞ラインは中段1本) の入賞。なければ null
+// こおりくん揃いは、エピソードBIG の入賞も「こおりを狙え」の揃いも 'koori' (仕様書 2026-10-21。BAR・BAR・BAR は役ではない)
 export function middleWin(cols) {
     const [a, b, c] = cols.map(col => col[1]);
     if (a === b && b === c) {
         if (a === 'bell' || a === 'replay' || a === 'koori') return a;
         if (a === 'seven') return 'big';
-        if (a === 'bar') return 'epbig';
     }
     if (a === 'seven' && b === 'seven' && c === 'bar') return 'reg';
     return null;

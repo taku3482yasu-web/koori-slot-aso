@@ -8,8 +8,8 @@
 
 export const CONFIG = {
     bet: 3,
-    // 払い出し【仮】(リプレイは次のゲームが無料)
-    payout: { bell: 9, weakCherry: 2, strongCherry: 2, midCherry: 2, weakSuika: 5, strongSuika: 5 },
+    // 払い出し (仕様書 2026-10-21。リプレイ・チャンス目は次のゲームが無料。押し順ベルの取りこぼしは仮組では作っていない)
+    payout: { bell: 15, weakCherry: 2, strongCherry: 2, midCherry: 2, weakSuika: 5, strongSuika: 5 },
 
     // 通常時の役の出現率 (1/x)【仮】。設定差はレア役だけ (仕様書)。設定ごとにレア役が rareBoost 倍ずつ増える
     roles: {
@@ -55,6 +55,8 @@ export const CONFIG = {
         superHeaven: { big: 70, reg: 20, epbig: 10 }
     },
     zenchoLength: [30, 40],
+    // 強レア役でボーナスに当たらなかったときのガセ前兆 (%)。弱レア役はガセ前兆なし (仕様書 2026-10-21。AT 中も同じ)
+    rareGase: { strongCherry: 50, strongSuika: 50, chance: 50 },
 
     // ----- 内部ステート (仕様書) -----
     // レア役のボーナス当選率 (%)
@@ -81,8 +83,24 @@ export const CONFIG = {
     bonusAt: { bell: 0.5, weakCherry: 8, weakSuika: 8, strongCherry: 50, strongSuika: 50, chance: 50, midCherry: 100 },
     stockSplit: { big: 85, epbig: 15 },
 
-    // ----- AT (仮組の最小限。次の段階で作る) -----
-    at: { games: 50, bellRate: 1.6, rareRate: 40, addTable: { 10: 40, 20: 30, 30: 15, 50: 10, 100: 4, 300: 1 } },
+    // ----- AT (仮組) -----
+    at: {
+        games: 50,
+        bellRate: 1.6,
+        rareRate: 40,
+        // AT 中のレア役のボーナス当選率 (%)。仕様書の「AT 中のレア役抽選」の低確の値【仮: ステートは見ない】
+        bonusRate: { weakCherry: 1.5, strongCherry: 20, midCherry: 50, weakSuika: 0.5, strongSuika: 20, chance: 15 },
+        // 直接上乗せ (仕様書のたたき台 v0.1。G: %。0 は上乗せなし = at:miss)
+        directAdd: {
+            weakCherry: { 0: 50, 10: 40, 20: 9, 30: 0.9, 100: 0.1 },
+            weakSuika: { 0: 60, 10: 38, 100: 1, 200: 0.5, 300: 0.5 },
+            strongCherry: { 10: 30, 20: 40, 30: 20, 50: 8, 100: 1.5, 200: 0.3, 300: 0.2 },
+            strongSuika: { 10: 40, 20: 40, 50: 15, 100: 4, 200: 0.5, 300: 0.3, 500: 0.2 },
+            chance: { 10: 40, 20: 35, 30: 20, 100: 4, 200: 0.6, 300: 0.4 }
+        },
+        // 押し順ベルで順押しナビ (当選確定) が出る率【仮】。出たら特化ゾーン当選にする
+        hotNavRate: 1 / 60
+    },
 
     // ----- 上乗せ特化ゾーン (仕様書。仮組は最小限) -----
     tokka: {
@@ -128,6 +146,20 @@ export const CONFIG = {
         heavenCutinRate: 1 / 25,
         aruaruShare: 0.3,
         // 天井でアルアルが出る割合
-        tenjoAruaru: 0.3
+        tenjoAruaru: 0.3,
+        // AT 中のボーナスの相手 (特化ゾーンに当たる見込みが高いほど強い相手)【仮】
+        boss: {
+            win: { daishi: 10, zumitani: 15, runaya: 20, nozoema: 25, maou: 30 },
+            lose: { daishi: 45, zumitani: 30, runaya: 15, nozoema: 8, maou: 2 }
+        },
+        // AT 終了画面の設定示唆の画像 (設定ごと)【仮】
+        hint: {
+            1: { team: 80, fiveDX: 12, ask3: 6, muscle: 2 },
+            2: { team: 78, fiveDX: 6, ask3: 13, muscle: 3 },
+            3: { team: 76, fiveDX: 13, ask3: 6, muscle: 5 },
+            4: { team: 70, fiveDX: 6, ask3: 13, muscle: 8, shitenno: 3 },
+            5: { team: 66, fiveDX: 12, ask3: 6, muscle: 10, shitenno: 4, maou: 2 },
+            6: { team: 60, fiveDX: 6, ask3: 12, muscle: 14, shitenno: 4, maou: 2, all: 2 }
+        }
     }
 };

@@ -182,7 +182,7 @@ function drawBattleResult(ctx, t, zencho, battle) {
 }
 
 // ボーナス確定のあと (次のゲームで図柄をそろえる)
-const AIM = { big: ['seven', 'seven', 'seven'], reg: ['seven', 'seven', 'bar'], epbig: ['bar', 'bar', 'bar'] };
+const AIM = { big: ['seven', 'seven', 'seven'], reg: ['seven', 'seven', 'bar'], epbig: ['koori', 'koori', 'koori'] };
 const BONUS_NAME = { big: 'BIG BONUS', reg: 'REGULAR BONUS', epbig: 'EPISODE BIG' };
 
 export function drawStandby(ctx, t, standby) {

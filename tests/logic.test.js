@@ -26,8 +26,8 @@ test('どの出目の形も、どこを押しても作れる', () => {
     }
 });
 
-test('ベル・リプレイ・ボーナスは中段にそろう', () => {
-    for (const [shape, win] of [['bell', 'bell'], ['replay', 'replay'], ['big', 'big'], ['reg', 'reg'], ['epbig', 'epbig'], ['koori', 'koori']]) {
+test('ベル・リプレイ・ボーナスは中段にそろう (エピソードBIG はこおりくん揃い)', () => {
+    for (const [shape, win] of [['bell', 'bell'], ['replay', 'replay'], ['big', 'big'], ['reg', 'reg'], ['epbig', 'koori'], ['koori', 'koori']]) {
         const ctrl = createReelControl(shape);
         [0, 1, 2].forEach(reel => ctrl.stop(reel, 7));
         assert.equal(middleWin(gridAt(ctrl.tops)), win);
@@ -43,8 +43,8 @@ test('通常時を長く回しても止まらず、前兆・ボーナス・AT �
     for (const type of [EVENTS.ZENCHO_START, EVENTS.ZENCHO_END, EVENTS.BONUS_START, EVENTS.BONUS_END, EVENTS.STAGE, EVENTS.ZONE, EVENTS.AT_START, EVENTS.AT_END]) {
         assert.ok(count[type] > 0, `${type} が起きない`);
     }
-    // 前兆は必ず終わる
-    assert.ok(Math.abs(count[EVENTS.ZENCHO_START] - count[EVENTS.ZENCHO_END]) <= 1);
+    // 前兆は必ず終わる (AT 中に AT が終わったときはラストジャッジで終わる)
+    assert.ok(Math.abs(count[EVENTS.ZENCHO_START] - count[EVENTS.ZENCHO_END] - (count[EVENTS.AT_JUDGE] || 0)) <= 1);
 });
 
 test('前兆の最後のバトルは、本物なら勝ち・ガセなら負け', () => {
@@ -123,5 +123,112 @@ test('特化ゾーン (仮組): ストック → 始まり → 3G ずつのセ�
         const total = games.reduce((a, g) => a + g.add, 0);
         assert.equal(log[end].total, total);
         assert.equal(log[end].left, m.snapshot().at ? m.snapshot().at.left : log[end].left);
+    }
+});
+
+test('チャンス目A はベルの小V で、中段は入賞しない', () => {
+    const rng = createRng(3);
+    for (let i = 0; i < 100; i++) {
+        const ctrl = createReelControl('chanceA');
+        [0, 1, 2].forEach(reel => ctrl.stop(reel, rng.int(0, 20)));
+        const cols = gridAt(ctrl.tops);
+        assert.equal(cols[0][0], 'bell');
+        assert.equal(cols[1][1], 'bell');
+        assert.equal(cols[2][0], 'bell');
+        assert.equal(middleWin(cols), null);
+    }
+});
+
+test('game:end の win: チェリー・スイカは役で、チャンス目はリプレイ扱い', () => {
+    for (const [role, win] of [['weakCherry', 'cherry'], ['strongSuika', 'suika'], ['chance', 'replay']]) {
+        const m = createMachine({ seed: 21 });
+        const rng = createRng(1);
+        let end = null;
+        m.on(e => { if (e.type === EVENTS.GAME_END) end = e; });
+        m.debug.setNextRole(role);
+        play(m, rng);
+        assert.equal(end.win, win, role);
+        if (role === 'chance') assert.ok(m.snapshot().free, 'チャンス目は次のゲームが無料');
+    }
+});
+
+test('AT のナビは中押し・右押しの4択。順押しナビは特化ゾーンのストックにつながる', () => {
+    const m = createMachine({ seed: 5 });
+    const rng = createRng(6);
+    const navs = [];
+    const log = [];
+    m.on(e => {
+        if (e.type === EVENTS.AT_GAME && e.nav) navs.push(e.nav);
+        log.push(e.type);
+    });
+    m.debug.direct();
+    play(m, rng);
+    for (let i = 0; i < 3000 && m.snapshot().phase !== 'normal'; i++) {
+        if (m.snapshot().phase === 'at') m.debug.setNextRole('bell');
+        play(m, rng);
+    }
+    assert.ok(navs.length > 0);
+    for (const nav of navs) {
+        if (nav[0] === 0) assert.deepEqual(nav, [0, 1, 2]);
+        else assert.ok([1, 2].includes(nav[0]));
+    }
+});
+
+test('AT 中のボーナス: 登場 → (狙え → 揃い → 勝利) か (最後のゲームで敗北) → AT に戻る', () => {
+    let wins = 0;
+    let loses = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+        const m = createMachine({ seed });
+        const rng = createRng(seed);
+        const log = [];
+        m.on(e => log.push(e));
+        m.debug.direct();
+        play(m, rng);
+        m.debug.atBonus('big');
+        let guard = 0;
+        while (!log.some(e => e.type === EVENTS.BONUS_END) && guard++ < 200) play(m, rng);
+        const start = log.find(e => e.type === EVENTS.BONUS_START);
+        assert.equal(start.inAt, true);
+        const boss = log.filter(e => e.type === EVENTS.AT_BOSS);
+        assert.equal(boss[0].final, false, '最初は登場');
+        const last = boss[boss.length - 1];
+        assert.equal(boss.length, 2);
+        assert.ok(boss.every(b => b.boss === boss[0].boss), '相手は同じ');
+        if (last.win) {
+            wins++;
+            const i = log.indexOf(last);
+            const nerae = log.findIndex(e => e.type === EVENTS.BONUS_NERAE);
+            const align = log.findIndex((e, k) => k > nerae && e.type === EVENTS.GAME_END);
+            assert.ok(nerae < align && align < i, '狙え → 揃い → 勝利の順');
+            assert.equal(log[align].win, 'koori');
+        } else loses++;
+        const end = log.find(e => e.type === EVENTS.BONUS_END);
+        assert.equal(end.at, false);
+        assert.ok(['at', 'standby'].includes(m.snapshot().phase) || log.some(e => e.type === EVENTS.AT_END));
+    }
+    assert.ok(wins > 0 && loses > 0, `勝ち ${wins} 負け ${loses}`);
+});
+
+test('前兆の途中で AT のゲーム数がなくなると、ラストジャッジで当落を告知する', () => {
+    for (const real of [true, false]) {
+        const m = createMachine({ seed: 8 });
+        const rng = createRng(8);
+        const log = [];
+        m.on(e => log.push(e));
+        m.debug.setGames(5);   // 0G のゾーンの前兆と重ならないように
+        m.debug.direct();
+        play(m, rng);
+        m.debug.startZencho({ real, length: 30 });
+        m.debug.atEndSoon();
+        for (let i = 0; i < 3; i++) {
+            m.debug.setNextRole('none');
+            play(m, rng);
+        }
+        const judge = log.find(e => e.type === EVENTS.AT_JUDGE);
+        assert.ok(judge, 'at:judge が出る');
+        assert.equal(judge.win, real);
+        const next = log[log.indexOf(judge) + 1];
+        assert.equal(next.type, real ? EVENTS.BONUS_STANDBY : EVENTS.AT_END);
+        if (!real) assert.ok(next.hint, 'at:end に hint がある');
     }
 });

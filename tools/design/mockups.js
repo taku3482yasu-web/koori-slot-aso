@@ -236,14 +236,16 @@ function kooriNerae(ctx) {
     [170, 204, 238].forEach(x => drawSymbol(ctx, 'koori', x, 90, 26));
 }
 
-// 前兆中に AT が終わったときの継続演出 (+50G して AT を続ける)
-function atContinue(ctx) {
-    atLcd(ctx);
-    rect(ctx, 0, 0, W, H, 'rgba(0,0,0,.6)');
-    rays(ctx, W / 2, 96, ['#8fd6f7', 'rgba(0,0,0,0)'], 28, 0.35);
-    text(ctx, 'まだ終わらない！', W / 2, 40, { size: 22, color: '#ffffff', lw: 5, stroke: '#0a2a5a' });
-    text(ctx, 'RASH 継続', W / 2, 80, { size: 26, color: vgrad(ctx, 66, 94, ['#ffffff', '#8fd6f7']), lw: 6, stroke: '#0a2a5a' });
-    plusGames(ctx, '+50G', W / 2, 124, 34);
+// 前兆中に AT のゲーム数がなくなったときの当落告知「ラストジャッジ」(仕様書 2026-10-21。+50G の継続はやめた)
+function atJudge(ctx) {
+    rect(ctx, 0, 0, W, H, '#05040a');
+    rays(ctx, W / 2, 96, ['rgba(255,60,60,.5)', 'rgba(0,0,0,0)'], 24, 0.35);
+    ['sasaki', 'kotani', 'asahara'].forEach((id, i) => ch(ctx, id, 190 + i * 44, 138, { scale: 1.6, flip: true }));
+    ch(ctx, 'koori', 70, 140, { scale: 3 });
+    text(ctx, '残り 0G', W / 2, 24, { size: 12, color: '#ff8a8a', lw: 3 });
+    text(ctx, 'ラストジャッジ！', W / 2, 54, { size: 24, color: vgrad(ctx, 40, 68, ['#ffffff', '#ff6a6a']), lw: 6, stroke: '#3a0008' });
+    pushButton(ctx, W / 2, 156, 14, '#e02a3a');
+    text(ctx, '勝ち → 撃破！ボーナス確定 / 負け → RASH 終了…', W / 2, 176, { size: 8, color: '#c8d4e0', stroke: null, font: BODY });
 }
 
 // 特化ゾーンの継続率テーブルでの継続 (リプレイ以上を引けなかったのに続く)
@@ -541,7 +543,7 @@ function deme(ctx) {
         ['弱スイカ', [[S, B, B], [B, S, R], [R, N, S]], [[0, 0], [1, 1], [2, 2]]],
         ['強スイカA', [[S, S, S], [B, N, N], [R, R, B]], [[0, 0], [0, 1], [0, 2]]],
         ['強スイカB', [[R, B, R], [S, S, S], [B, N, N]], [[1, 0], [1, 1], [1, 2]]],
-        ['チャンス目A', [[B, N, B], [R, R, R], [X, B, S]], [[0, 0], [2, 1], [0, 2]]],
+        ['チャンス目A', [[B, R, B], [R, B, R], [X, S, S]], [[0, 0], [1, 1], [0, 2]]],
         ['チャンス目B', [[S, B, R], [B, S, S], [R, N, N]], [[0, 0], [1, 1], [1, 2]]]
     ];
     list.forEach(([name, grid, mark], i) => {
@@ -670,7 +672,7 @@ export const SCENES = {
     'epbig': LCD(epBig),
     'koori-nerae': LCD(kooriNerae),
     'bonus-at': LCD(bonusAt),
-    'at-continue': LCD(atContinue),
+    'at-judge': LCD(atJudge),
     'zone-revive': LCD(zoneRevive),
     'bonus-stock': LCD(bonusStock),
     'at-main': { w: W, h: 326, draw: atMain },
