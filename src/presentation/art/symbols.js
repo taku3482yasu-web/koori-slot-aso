@@ -70,15 +70,17 @@ export const SYMBOL_ART = {
         stroke(0, 0, '#e01020');
         r(7, 5, 18, 1, '#ff8a8a');
     },
-    koori(r, disc) {
-        // こおりくん (キャラのドット絵を 1.5倍) の後ろに氷色の丸
-        disc(16, 16, 15, '#1b3a6b');
-        disc(16, 16, 14, '#dff6ff');
+    koori(r) {
+        // こおりくん (キャラのドット絵を 1.25倍) の後ろに氷色の長方形 (2026-10-21 ユーザー指定: 丸から長方形に)
+        r(1, 5, 30, 23, '#1b3a6b');
+        r(2, 6, 28, 21, '#dff6ff');
+        r(2, 23, 28, 4, '#bfe6f7');
+        r(3, 7, 4, 1, '#ffffff');
         const s = STRING_SPRITES.koori;
         s.frames.walk1.forEach((row, y) => {
             for (let x = 0; x < row.length; x++) {
                 const color = s.palette[row[x]];
-                if (color) r(x * 1.5 + 4, y * 1.5 + 3, 1.5, 1.5, color);
+                if (color) r(x * 1.25 + 6, y * 1.25 + 7, 1.25, 1.25, color);
             }
         });
     },
