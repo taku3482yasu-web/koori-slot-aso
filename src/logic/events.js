@@ -38,7 +38,7 @@ export const EVENTS = {
     AT_MISS: 'at:miss',           // { attacker, enemy }  上乗せなしのレア役 (「ミス！」)
     AT_BOSS: 'at:boss',           // { boss, final, win }  AT 中のボーナスの相手 (登場 / 勝利)
     AT_BOSS_ATTACK: 'at:bossAttack', // { boss, move, result, color, shout }  AT 中のボーナスのレア役で、仲間が相手を攻撃する (v0.6)
-    AT_BOSS_JUDGE: 'at:bossJudge', // { boss, win, finisher }  AT 中のボーナスの最後のゲームの一騎打ち「ラストジャッジ」(v0.6)
+    AT_BOSS_JUDGE: 'at:bossJudge', // { boss, win, finisher }  AT 中のボーナスの最後のゲームの一騎打ち「ラストジャッジ」(v0.6)。finisher: 'koori' | 'kooriKill' (絶対殺す剣。確定) | 仲間の id (確定)
     AT_JUDGE: 'at:judge',         // { win, bonus }  前兆中に AT のゲーム数がなくなったときの当落告知
     AT_END: 'at:end',             // { games, payout, hint, trophy }  hint: 設定示唆の画像 / trophy: 設定示唆トロフィーの色 (出ないときは null)
 

@@ -327,11 +327,13 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             shape = 'koori';
             if (b.inAt) b.bossWin = true;
         } else if (battle && !b.atWon && b.left === 1) {
-            // ラストジャッジ: 勝つときだけ、こおりくんの代わりに仲間が必殺技を放つことがある (確定)
+            // ラストジャッジ: 勝つときだけ、こおりくんの代わりに仲間が必殺技を放つか、こおりくんが絶対殺す剣を放つことがある (どちらも確定)
             const cfg = config.show.bossJudge;
             const win = Boolean(b.willWin && b.winAt === 1);
             if (win) b.atWon = true;
-            emit(E.AT_BOSS_JUDGE, { boss: b.boss, win, finisher: win && rng.chance(cfg.allyFinish) ? rng.pick(cfg.allies) : 'koori' });
+            const r = rng.next();
+            const finisher = !win ? 'koori' : r < cfg.allyFinish ? rng.pick(cfg.allies) : r < cfg.allyFinish + cfg.killFinish ? 'kooriKill' : 'koori';
+            emit(E.AT_BOSS_JUDGE, { boss: b.boss, win, finisher });
         } else if (battle && !b.atWon && RARE.includes(role)) {
             emit(E.AT_BOSS_ATTACK, bossAttack(b));
         }

@@ -216,7 +216,7 @@ test('AT 中のボーナス: 登場 → (狙え → 揃い → 勝利) か (最�
             assert.ok(nerae < align && align < i, '狙え → 揃い → 勝利の順');
             assert.equal(log[align].win, 'koori');
         } else {
-            // 最後のゲームのラストジャッジ。こおりくん以外が必殺技を放つのは勝つときだけ
+            // 最後のゲームのラストジャッジ。こおりくん以外が必殺技を放つ・こおりくんの絶対殺す剣は、勝つときだけ
             assert.equal(boss.length, 1);
             assert.equal(judge.length, 1);
             const j = judge[0];
@@ -261,6 +261,30 @@ test('AT 中のボーナスのラストジャッジで勝つと、特化ゾー�
     let guard = 0;
     while (!log.some(e => e.type === EVENTS.TOKKA_START) && guard++ < 10) play(m, rng);
     assert.ok(log.some(e => e.type === EVENTS.TOKKA_START), '特化ゾーンへ');
+});
+
+test('ラストジャッジの絶対殺す剣 (kooriKill) と仲間の必殺技は勝つときだけ、負けはいつもこおりくん', () => {
+    const seen = { win: new Set(), lose: new Set() };
+    for (let seed = 1; seed <= 60; seed++) {
+        const win = seed % 2 === 0;
+        const m = createMachine({ seed });
+        const rng = createRng(seed);
+        const log = [];
+        m.on(e => log.push(e));
+        m.debug.direct();
+        play(m, rng);
+        m.debug.atBonus('big');
+        play(m, rng);   // 7 を揃える
+        m.debug.setNextRole('none');
+        play(m, rng);   // 最初のゲーム (登場)
+        m.debug.bossJudge(win);
+        play(m, rng);
+        const j = log.find(e => e.type === EVENTS.AT_BOSS_JUDGE);
+        assert.equal(j.win, win);
+        seen[win ? 'win' : 'lose'].add(j.finisher === 'koori' || j.finisher === 'kooriKill' ? j.finisher : 'ally');
+    }
+    assert.deepEqual([...seen.lose], ['koori']);
+    assert.ok(seen.win.has('kooriKill') && seen.win.has('ally') && seen.win.has('koori'), [...seen.win].join(','));
 });
 
 test('前兆の途中で AT のゲーム数がなくなると、ラストジャッジで当落を告知する', () => {

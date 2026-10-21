@@ -162,9 +162,11 @@ export const CONFIG = {
         },
         // AT 中のボーナスの最後のゲームの一騎打ち「ラストジャッジ」(at:bossJudge。v0.6)【仮】
         // byJudge: 特化ゾーンに当たるボーナスのうち、ラストジャッジで勝つ割合 / allyFinish: 勝つときに仲間が必殺技を放つ割合 (確定)
+        // killFinish: 勝つときに、こおりくんが絶対殺す剣を放つ割合 (確定。v0.7)
         bossJudge: {
             byJudge: 0.3,
             allyFinish: 0.45,
+            killFinish: 0.3,
             allies: ['onioni', 'yasu', 'tamu', 'dake', 'okagappa', 'hibikimakuri', 'yamamou', 'sasaki', 'kotani', 'asahara', 'shibata', 'ikekimu', 'ueno']
         },
         // 設定示唆トロフィー (AT 終了画面に落ちてくる)。rate: 出る率 / weights: 出たときの色 (設定ごと)【仮: 前作の値】
