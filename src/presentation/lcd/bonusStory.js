@@ -37,6 +37,9 @@ export const REG_CARDS = BIG_CARDS.filter(c => ['koori', 'onioni'].includes(c.wh
 //   brawl: true で大乱戦 (土けむりのまわりで cast がもみ合う) / vs: true で cast の2人がにらみ合い、まんなかに「VS」
 //   clash: true で cast の2人の一騎打ち (ぶつかって火花) / cast の down: true で倒れて横になる / floor: '22F' で左上に階を出す
 //   special: '技の名前' (配列ならセリフごとに次の名前) で必殺技。cast が技を出し、target が相手。最後のセリフで命中し、ko: true なら相手が倒れる。beam: true は相手の魔法を受け止めて消す
+//     ('fire' で赤いビーム)、split: true で相手が真っ二つ。cast の rainbow: true で虹色の光、sword: true で大魔王絶対殺す剣を持つ
+//   gather: [キャラ] で cast の先頭に、まわりのキャラから力が集まる (rainbow: true で虹色の光も) / awaken: true で覚醒 (虹色・剣が変わる)
+//   treasure: true で財宝の山
 //   bg: 'home' (こおりくんの家) / 'town' (夕焼けの町) / 'tower' (摩天楼の前・全体) / 'lobby' (摩天楼1階) / 'middle' (中間階層) / 'boss' (四天王の階) / 'top' (最上階)
 export const EPISODES = [
     {
@@ -269,11 +272,12 @@ export const EPISODES = [
         scenes: [
             // 第8話はユーザーが決めた流れ (2026-10-21) をもとに Claude が書いたセリフ。直してもらう
             // 技の名前はユーザー指定: だけチョップ・おちょくりボーンフィーバー・DOPAPANCHI・イケキムドライブ・マッスルウエノクラッシュ。
-            // 名前の指定がない技 (やすさん・たむさん、5DX の同時必殺技、KOTANI、シバター) は帯に技の説明だけ出している
+            // そのほかは前作のスロット (koori/js/config.js) のキャラの必殺技: やすパンチ・たむキック・おかピポっと光線・大音響4DX・ASAスラッシュ・シバタードライバー。
+            // KOTANI は前作にいないので「一刀両断」 (技の説明)
             // 22階: やすさん・たむさんが浦の島重蔵を、だけさんがダイシを倒す
             {
-                bg: 'boss', floor: '22F', special: 'やすさん・たむさん 合体必殺技', cast: ['yasu', 'tamu'], target: 'urashima', ko: true, who: 'やすさん', line: 'たむさん、いくよ！せーの！',
-                then: [{ who: 'たむさん', line: 'これで終わりや！' }, { who: '浦の島重蔵', line: 'ぐわーっ…わしは…なんじゃったかの…' }]
+                bg: 'boss', floor: '22F', special: ['やすパンチ', 'たむキック'], cast: ['yasu', 'tamu'], target: 'urashima', ko: true, who: 'やすさん', line: 'たむさん、いくよ！やすパンチ！',
+                then: [{ who: 'たむさん', line: 'これで終わりや！たむキック！' }, { who: '浦の島重蔵', line: 'ぐわーっ…わしは…なんじゃったかの…' }]
             },
             {
                 bg: 'boss', floor: '22F', special: 'だけチョップ', cast: ['dake'], target: 'daishi', ko: true, who: 'ダイシ', line: '…仏の顔はここまで。鬼となった拙僧を止められますかな？',
@@ -285,12 +289,12 @@ export const EPISODES = [
                 then: { who: 'やまもぅ', line: '…今、おちょくったな？牛をおちょくるやつは許さん！' }
             },
             {
-                bg: 'boss', floor: '33F', special: ['5DX 同時必殺技', 'おちょくりボーンフィーバー'], cast: ['okagappa', 'hibikimakuri', 'yamamou'], target: 'zumitani', crowd: 'makibikon', ko: true, who: 'おかがっぱ', line: 'みんな、同時にいくぜ　イェア！',
-                then: [{ who: 'やまもぅ', line: 'おちょくりボーンフィーバー！！モォーーー！' }, { who: 'ズミタニ', line: 'うそでしょ～！？マキビコンごと～！？' }]
+                bg: 'boss', floor: '33F', special: ['おかピポっと光線', '大音響4DX', 'おちょくりボーンフィーバー'], cast: ['okagappa', 'hibikimakuri', 'yamamou'], target: 'zumitani', crowd: 'makibikon', ko: true, who: 'おかがっぱ', line: 'みんな、同時にいくぜ！おかピポ！イェア！おかピポっと光線！',
+                then: [{ who: 'ひびきまくり', line: 'これが４DXだ！大音響4DX～！' }, { who: 'やまもぅ', line: 'おちょくりボーンフィーバー！！モォーーー！' }, { who: 'ズミタニ', line: 'うそでしょ～！？マキビコンごと～！？' }]
             },
             // 44階: SASAKI がすきを作り、KOTANI が奈架多ドラゴンを切り伏せる
             {
-                bg: 'boss', floor: '44F', special: 'KOTANI 一刀両断', cast: ['sasaki', 'kotani'], target: 'nakata', ko: true, who: 'Mr.SASAKI', line: 'ドラゴンさん、こっちこっち！…はい、すきあり！',
+                bg: 'boss', floor: '44F', special: ['ASAスラッシュ', 'KOTANI 一刀両断'], cast: ['sasaki', 'kotani'], target: 'nakata', ko: true, who: 'Mr.SASAKI', line: '締め切り厳守です。ASAスラッシュ！…はい、すきあり！',
                 then: [{ who: 'Mr.KOTANI', line: '計算どおりです。…切り伏せます。' }, { who: '奈架多ドラゴン', line: 'グオ…（力加減…まちがえた…）' }]
             },
             // ルナヤの魔法を KING.ASAHARA が真正面から無効化し、DOPAPANCHI で一撃
@@ -308,12 +312,74 @@ export const EPISODES = [
                 then: { who: 'ウエノーブル', line: 'お願いマッスル、総力戦だ！' }
             },
             {
-                bg: 'boss', floor: '55F', special: ['シバター 渾身の一撃', 'イケキムドライブ'], cast: ['shibata', 'ikekimu'], target: 'nozoema', who: 'シバター', line: 'まずはオレから！撮れ高いただきー！んなああ～',
+                bg: 'boss', floor: '55F', special: ['シバタードライバー', 'イケキムドライブ'], cast: ['shibata', 'ikekimu'], target: 'nozoema', who: 'シバター', line: 'まずはオレから！バーイ！シバタードライバー！',
                 then: { who: 'イケキム', line: 'すきだらけだ。…イケキムドライブ！' }
             },
             {
                 bg: 'boss', floor: '55F', special: 'マッスルウエノクラッシュ', cast: ['ueno'], target: 'nozoema', ko: true, who: 'ウエノーブル', line: '妻への愛と、1日26時間の筋肉…受けてみよ！マッスルウエノクラッシュ！！',
                 then: { who: 'ノゾエマ', line: 'み…見事な…筋肉…だ…' }
+            }
+        ]
+    },
+    {
+        title: '最終決戦',   // 題名は仮 (ユーザーに確認する)
+        scenes: [
+            // 第9話はユーザーが決めた流れ (2026-10-21) をもとに Claude が書いたセリフ。直してもらう
+            // おにおにの「こおり！俺の最後の力だ！受け取ってくれ～！」と、技の名前「大魔王絶対殺す剣」「亜祖宇激烈破」はユーザー指定。
+            // おにおにの「鬼鬼の金棒」・こおりくんの「大腸炎アタック」は前作のスロットの必殺技
+            // 大魔王ASO の圧倒的な力
+            {
+                bg: 'top', floor: '56F', special: ['鬼鬼の金棒', '大腸炎アタック'], cast: ['onioni', 'koori'], target: 'maou', who: 'おにおに', line: '金返せ…じゃなかった、くらえ！鬼鬼の金棒！',
+                then: [{ who: 'こおりくん', line: 'いっけー！大腸炎アタック！' }, { who: '大魔王ASO', line: '…それで終わりか？' }]
+            },
+            {
+                bg: 'top', floor: '56F', cast: [{ id: 'koori', down: true }, { id: 'onioni', down: true }, 'maou'], who: '大魔王ASO', line: 'これが数百年の封印でたくわえた我が力。ひれ伏すがよい！',
+                then: [{ who: 'こおりくん', line: 'う…強すぎる…体が動かない…' }, { who: 'おにおに', line: 'くそっ…ここまでなのか…！' }]
+            },
+            // KING.ASAHARA が大魔王の攻撃をはじく
+            {
+                bg: 'top', floor: '56F', cast: [{ id: 'koori', down: true }, { id: 'asahara', drop: true }, 'maou'], who: 'KING.ASAHARA', line: 'させるか！このワシをさしおいて、おにおにを倒すなど許さん！',
+                then: [{ who: '大魔王ASO', line: '何…！？我が一撃をはじいただと！？' }, { who: 'おにおに', line: 'ASAHARA…！おまえ…！' }]
+            },
+            // 全員が集結する
+            {
+                bg: 'top', floor: '56F', cast: ['yasu', 'dake', 'okagappa', 'yamamou', 'ueno', 'ikekimu', 'kotani'], who: 'だけさん', line: '待たせたな、こおり！',
+                then: [{ who: 'おかがっぱ', line: '俺たちも来たぜ　イェア！' }, { who: 'ウエノーブル', line: '四天王はみな倒した！残るは大魔王だけだ！' }]
+            },
+            // こおりくんに力を集める
+            {
+                bg: 'top', floor: '56F', cast: ['koori'], gather: ['yasu', 'tamu', 'dake', 'okagappa', 'hibikimakuri', 'yamamou', 'sasaki', 'asahara', 'kotani', 'shibata', 'ueno', 'ikekimu'], who: 'Mr.KOTANI', line: '全員の力を、こおりくんに集めます！',
+                then: { who: 'こおりくん', line: 'みんなの力が…流れこんでくる…！' }
+            },
+            {
+                bg: 'top', floor: '56F', cast: ['koori'], gather: ['onioni'], rainbow: true, who: 'おにおに', line: 'こおり！俺の最後の力だ！受け取ってくれ～！',
+                then: { who: 'こおりくん', line: 'おにおに…！うん…！受け取ったよ！！' }
+            },
+            // こおりくんが虹色に光り、コオリソードが大魔王絶対殺す剣に変わる
+            {
+                bg: 'top', floor: '56F', awaken: true, cast: ['koori'], who: 'やすさん', line: 'こおりくんが…虹色に光ってる…！コオリソードが変わっていく…！',
+                then: { who: 'こおりくん', line: '大魔王絶対殺す剣！！' }
+            },
+            // 大魔王ASO の亜祖宇激烈破と激突
+            {
+                bg: 'top', floor: '56F', special: ['亜祖宇激烈破', '大魔王絶対殺す剣'], beam: 'fire', cast: [{ id: 'koori', rainbow: true, sword: true }], target: 'maou', who: '大魔王ASO', line: '小賢しい！消え去れ！亜祖宇激烈破！！',
+                then: { who: 'こおりくん', line: 'みんなの力は…負けないっ！！' }
+            },
+            // 真っ二つにして撃破
+            {
+                bg: 'top', floor: '56F', special: '大魔王絶対殺す剣', split: true, cast: [{ id: 'koori', rainbow: true, sword: true }], target: 'maou', who: 'こおりくん', line: 'これで…終わりだーーっ！！',
+                then: { who: '大魔王ASO', line: 'ば、ばかな…この我が…真っ二つに…！' }
+            },
+            // 財宝を山分けして、それぞれの帰る場所へ
+            {
+                bg: 'top', treasure: true, cast: ['koori', 'onioni', 'okagappa', 'asahara', 'ueno'], who: 'こおりくん', line: 'やったー！財宝だー！約束どおり、みんなで山分けだ！',
+                then: [
+                    { who: 'ウエノーブル', line: 'あったぞ！妻への黄金のネックレスだ！' },
+                    { who: 'KING.ASAHARA', line: 'ふん…今回はおまえたちに花を持たせてやる。次は負けんぞ、おにおに。' },
+                    { who: 'おにおに', line: 'こおり、借金はこれで全部返してもらうぞ。…よくやったな。' },
+                    { who: 'こおりくん', line: 'うん！これで…こおり、生きていける！' },
+                    { who: 'ナレーション', line: 'こうして、財宝を山分けしたみんなは、それぞれの帰る場所へと帰っていった。' }
+                ]
             }
         ]
     }

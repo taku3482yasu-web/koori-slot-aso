@@ -8,7 +8,7 @@
 
 import { ART } from '../art/characters.js';
 import { drawSymbol } from '../art/symbols.js';
-import { BODY, H, RAINBOW, W, ch, rainbow, rays, rect, room, roundRect, seeded, text, tower, vgrad } from './kit.js';
+import { BODY, H, RAINBOW, W, ch, rainbow, rays, rect, room, roundRect, seeded, text, tower, vgrad, weapon } from './kit.js';
 import { BIG_CARDS, EPISODES, REG_CARDS } from './bonusStory.js';
 
 export const BONUS_NAME = { big: 'BIG BONUS', reg: 'REGULAR BONUS', epbig: 'EPISODE BIG' };
@@ -375,7 +375,8 @@ function drawSpecial(ctx, t, scene, sayIndex, sayCount, k2) {
     // 群れは命中するまで相手のうしろにいる
     if (scene.crowd && !hit) drawCrowd(ctx, t, scene.crowd, 196, 312, true);
     if (scene.target) {
-        if (hit && scene.ko) downChar(ctx, t, scene.target, tx, 70, 50);
+        if (hit && scene.split) splitChar(ctx, t, scene.target, tx, since, 70, 56);
+        else if (hit && scene.ko) downChar(ctx, t, scene.target, tx, 70, 50);
         else fitChar(ctx, scene.target, tx + (hit ? Math.sin(since / 25) * 3 : 0), 122, 70, 50, { frame: frameOf(t, 400), flip: true, tint: hit && since < 300 ? '#ffffff' : null }, 2.8);
     }
     // 技を出す側: 力をためているあいだは足もとから光が立ちのぼる
@@ -388,13 +389,16 @@ function drawSpecial(ctx, t, scene, sayIndex, sayCount, k2) {
             rect(ctx, x - 14, 70, 28, 52, vgrad(ctx, 70, 122, ['rgba(255,240,160,0)', '#ffe680']));
             ctx.restore();
         }
+        if (c.rainbow) rainbowHalo(ctx, t, c.id, x + (hit ? 6 : 0), 122, n > 2 ? 40 : 56, 50);
         fitChar(ctx, c.id, x + (hit ? 6 : 0), 122, n > 2 ? 40 : 56, 50, { frame: frameOf(t, hit ? 120 : 260) }, 2.6);
+        if (c.sword) weapon(ctx, 'kill', x + 22, 112);
     });
     if (scene.beam && !hit) {
         // 相手から左へのびるビームと、先頭のキャラの前の盾
         const sx = (n === 1 ? 92 : 36) + 30;
         const len = Math.min(1, k2 / 900);
-        rect(ctx, tx - 26 - (tx - 26 - sx) * len, 78, (tx - 26 - sx) * len, 8, vgrad(ctx, 78, 86, ['#d0b0ff', '#ffffff', '#d0b0ff']));
+        const beamColor = scene.beam === 'fire' ? '#ff6a20' : '#d0b0ff';
+        rect(ctx, tx - 26 - (tx - 26 - sx) * len, 78, (tx - 26 - sx) * len, 8, vgrad(ctx, 78, 86, [beamColor, '#ffffff', beamColor]));
         ctx.save();
         ctx.globalAlpha = 0.6 + Math.sin(t / 60) * 0.2;
         ctx.strokeStyle = '#ffe040';
@@ -432,6 +436,129 @@ function drawSpecial(ctx, t, scene, sayIndex, sayCount, k2) {
     ctx.restore();
 }
 
+// キャラのうしろの虹色の光 (覚醒したこおりくんなど)
+function rainbowHalo(ctx, t, id, x, ground, w, h) {
+    const a = ART[id];
+    const s = Math.min(w / a.w, h / a.h, 2.6) * 1.25;
+    ctx.save();
+    ctx.globalAlpha = 0.55 + Math.sin(t / 120) * 0.15;
+    ch(ctx, id, x, ground + 4, { scale: s, tint: rainbow(ctx, x - 30, ground - 60, x + 30, ground), frame: frameOf(t, 260) });
+    ctx.restore();
+}
+
+// 真っ二つ: 斜めの斬撃の光のあと、相手が左右に割れてずれていく
+function splitChar(ctx, t, id, x, since, w, h) {
+    const a = ART[id];
+    const s = Math.min(w / a.w, h / a.h, 2.8);
+    const d = Math.min(1, since / 900) * 16;
+    const top = 122 - a.h * s;
+    for (const side of [-1, 1]) {
+        ctx.save();
+        // 片方ずつずらしてから、斜めの線 (右上から左下) で切る。切り口も一緒にずれるので、割れたように見える
+        ctx.translate(side * d, side * d * 0.4 + d * 0.3);
+        ctx.beginPath();
+        if (side < 0) { ctx.moveTo(0, 0); ctx.lineTo(x + 30, 0); ctx.lineTo(x - 30, H); ctx.lineTo(0, H); }
+        else { ctx.moveTo(x + 30, 0); ctx.lineTo(W, 0); ctx.lineTo(W, H); ctx.lineTo(x - 30, H); }
+        ctx.closePath();
+        ctx.clip();
+        ch(ctx, id, x, 122, { scale: s, frame: 0, tint: since < 250 ? '#ffffff' : null });
+        ctx.restore();
+    }
+    if (since < 600) {
+        ctx.save();
+        ctx.globalAlpha = 1 - since / 600;
+        ctx.strokeStyle = rainbow(ctx, x + 30, top, x - 30, 122);
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(x + 40, top - 10);
+        ctx.lineTo(x - 40, 132);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// 力を集める: まんなかのこおりくんへ、まわりのみんなから光がのびる (cast の先頭がまんなか、gather はまわりのキャラ)
+function drawGather(ctx, t, scene, k) {
+    const [center] = scene.cast.map(castOf);
+    const others = scene.gather;
+    const cx = W / 2, cy = 92;
+    const spots = others.map((id, i) => {
+        const f = others.length === 1 ? 0.5 : i / (others.length - 1);
+        return { id, x: 24 + f * (W - 48), ground: 122 - Math.sin(f * Math.PI) * 50 };
+    });
+    // 光のすじ
+    spots.forEach((p, i) => {
+        const pulse = (t / 400 + i * 0.3) % 1;
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.strokeStyle = RAINBOW[i % RAINBOW.length];
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.ground - 20);
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        text(ctx, '✦', p.x + (cx - p.x) * pulse, p.ground - 20 + (cy - p.ground + 20) * pulse, { size: 10, color: '#ffffff', stroke: null });
+        ctx.restore();
+    });
+    spots.forEach(p => fitChar(ctx, p.id, p.x, p.ground, 34, 36, { frame: frameOf(t, 300), flip: p.x > cx }, 1.8));
+    // まんなかは光がたまるほど明るくなる
+    const glow = Math.min(1, k / 3000);
+    ctx.save();
+    ctx.globalAlpha = 0.3 + glow * 0.5;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 20 + glow * 14 + Math.sin(t / 100) * 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    if (scene.rainbow) rainbowHalo(ctx, t, center.id, cx, 122, 60, 54);
+    fitChar(ctx, center.id, cx, 122, 60, 54, { frame: frameOf(t, 260) }, 2.8);
+}
+
+// 覚醒: 虹色に光るこおりくんと、コオリソードが変わった大魔王絶対殺す剣
+function drawAwaken(ctx, t, scene, k) {
+    const [center] = scene.cast.map(castOf);
+    ctx.save();
+    ctx.translate(W / 2, 90);
+    ctx.rotate(t / 3000);
+    ctx.translate(-W / 2, -90);
+    rays(ctx, W / 2, 90, RAINBOW, 36, 0.35);
+    ctx.restore();
+    rainbowHalo(ctx, t, center.id, W / 2 - 20, 124, 76, 64);
+    fitChar(ctx, center.id, W / 2 - 20, 122, 76, 64, { frame: frameOf(t, 260) }, 3.4);
+    // 剣はしばらく光ってから、大きな虹色の剣に変わる
+    if (k < 1200) {
+        weapon(ctx, 'sword', W / 2 + 34, 116);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, k / 1200);
+        rect(ctx, W / 2 + 20, 60, 30, 60, 'rgba(255,255,255,.8)');
+        ctx.restore();
+    } else {
+        weapon(ctx, 'kill', W / 2 + 36, 118);
+        if (k < 1600) rect(ctx, 0, 0, W, H, `rgba(255,255,255,${0.8 * (1 - (k - 1200) / 400)})`);
+    }
+}
+
+// 財宝: 金貨の山 (うしろ) と、手前できらめく金貨
+function drawTreasureBack(ctx, t) {
+    const rnd = seeded(17);
+    for (let i = 0; i < 90; i++) {
+        const x = 20 + rnd() * 280, y = 96 + rnd() * 30 - Math.sin(((x - 20) / 280) * Math.PI) * 24;
+        ctx.fillStyle = i % 3 ? '#ffd23a' : '#e8a010';
+        ctx.beginPath();
+        ctx.ellipse(x, y, 6, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    [[60, 92, '#e02040'], [150, 76, '#2060e0'], [250, 90, '#20c060']].forEach(([x, y, c]) => rect(ctx, x, y, 6, 6, c));
+}
+function drawTreasureFront(ctx, t) {
+    const rnd = seeded(3);
+    for (let i = 0; i < 10; i++) {
+        const x = rnd() * W, ph = (t / 600 + rnd()) % 1;
+        if (ph < 0.3) text(ctx, '✦', x, 70 + rnd() * 50, { size: 8 + ph * 20, color: '#ffffff', stroke: null });
+    }
+}
+
 const DROP_MS = 600;   // 落ちてくるキャラが着地するまで
 
 function drawEpisode(ctx, t, b) {
@@ -463,8 +590,11 @@ function drawEpisode(ctx, t, b) {
     else if (scene.vs) drawVs(ctx, t, scene);
     else if (scene.clash) drawClash(ctx, t, scene);
     else if (scene.special) drawSpecial(ctx, t, scene, sayIndex, says.length, k2);
+    else if (scene.gather) drawGather(ctx, t, scene, k);
+    else if (scene.awaken) drawAwaken(ctx, t, scene, k);
     else {
         // 出るキャラを左から並べる (右半分にいるキャラは左を向く)。群れがいるときは、キャラを左に寄せて群れを右に置く
+        if (scene.treasure) drawTreasureBack(ctx, t);
         const cast = scene.cast.map(castOf);
         const n = cast.length;
         const right = scene.crowd ? 160 : W - 50;
@@ -489,6 +619,7 @@ function drawEpisode(ctx, t, b) {
             }
         });
         if (scene.crowd) drawCrowd(ctx, t, scene.crowd, 196, 312, true);
+        if (scene.treasure) drawTreasureFront(ctx, t);
     }
     ctx.restore();
     // 場面が変わったときは少し暗くしてから明るく
