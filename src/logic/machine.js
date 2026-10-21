@@ -388,6 +388,7 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
     function atGame(role) {
         const a = s.at;
         const notices = [];
+        let bonusHere = false;   // このゲームでボーナスに当たった (違和感演出の抽選に使う)
         a.left--;
         s.normalGames++;
         checkZone();
@@ -405,6 +406,7 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             const r = rng.next() * 100;
             const bonusRate = config.at.bonusRate[role] || 0;
             if (r < bonusRate) {
+                bonusHere = true;
                 rareBonus(role === 'weakSuika' ? 'epbig' : bonusType(s.mode));
             } else if (r < bonusRate + (config.tokka.rate[role] || 0)) {
                 s.tokkaWon = true;
@@ -420,6 +422,12 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                     emit(E.AT_MISS, { attacker: rng.pick(['yasu', 'tamu', 'dake']), enemy: 'harry' });
                 }
             }
+        }
+        // 違和感演出: 当たったゲームで出やすく、当たっていなくてもたまに出る (ガセ)【仮】
+        const iw = config.at.iwakan;
+        const won = s.tokkaWon || bonusHere;
+        if (rng.chance(won ? iw.hit : iw.gase)) {
+            notices.push({ kind: 'iwakan', timing: 'lever', effect: rng.pick(nav ? iw.types.concat(iw.navTypes) : iw.types) });
         }
         const zenchoEnd = zenchoGame(notices);
         return { notices, zenchoEnd };

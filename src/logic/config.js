@@ -99,7 +99,9 @@ export const CONFIG = {
             chance: { 10: 40, 20: 35, 30: 20, 100: 4, 200: 0.6, 300: 0.4 }
         },
         // 押し順ベルで順押しナビ (当選確定) が出る率【仮】。出たら特化ゾーン当選にする
-        hotNavRate: 1 / 60
+        hotNavRate: 1 / 60,
+        // 違和感演出 (notice の iwakan)【仮】: ボーナスか特化ゾーンに当たったゲームで出る率・当たっていないゲームで出る率 (ガセ)
+        iwakan: { hit: 0.4, gase: 1 / 40, types: ['noise', 'mute', 'freeze', 'invert', 'button', 'lever'], navTypes: ['navGlitch', 'navQuestion'] }
     },
 
     // ----- 上乗せ特化ゾーン (仕様書。仮組は最小限) -----

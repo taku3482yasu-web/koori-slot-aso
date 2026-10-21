@@ -53,4 +53,5 @@ export const EVENTS = {
 //   flash      { timing: 'afterStop', level: 'small' | 'big' | 'rainbow' }  レア役のフラッシュ
 //   cutin      { timing: 'lever', color: 'blue' | 'green' | 'red' | 'gold' | 'rainbow' }  前兆中のカットイン
 //   kakutei    { timing: 'afterStop' }  確定音
-export const NOTICE_KINDS = ['sakibare', 'flash', 'cutin', 'kakutei'];
+//   iwakan     { timing: 'lever', effect }  違和感演出 (AT 中。effect: 'navGlitch' | 'navQuestion' | 'noise' | 'mute' | 'freeze' | 'invert' | 'button' | 'lever')
+export const NOTICE_KINDS = ['sakibare', 'flash', 'cutin', 'kakutei', 'iwakan'];
