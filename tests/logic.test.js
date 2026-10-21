@@ -87,14 +87,21 @@ test('天井はちょうどの G で当たり、ナイナイなら BIG・アル�
     assert.equal(tenjo.bonus, standby.bonus);
 });
 
-test('AT 直撃 (デバッグ) で AT が始まる', () => {
+test('AT 直撃 (デバッグ) で AT が始まり、出目はチャンス目A の小V', () => {
     const m = createMachine({ seed: 11 });
     const rng = createRng(4);
     let start = null;
-    m.on(e => { if (e.type === EVENTS.AT_START) start = e; });
+    let end = null;
+    m.on(e => {
+        if (e.type === EVENTS.AT_START) start = e;
+        if (e.type === EVENTS.GAME_END && !end) end = e;
+    });
     m.debug.direct();
     play(m, rng);
     assert.equal(start.cause, 'direct');
+    // 直撃のゲームはチャンス目A (ベルの小V)。リプレイ扱い
+    assert.deepEqual([end.cols[0][0], end.cols[1][1], end.cols[2][0]], ['bell', 'bell', 'bell']);
+    assert.equal(end.win, 'replay');
     assert.equal(m.snapshot().phase, 'at');
 });
 

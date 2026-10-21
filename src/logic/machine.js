@@ -571,6 +571,8 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                 role = s.forcedRole || drawRole(config.roles, boost);
                 result = normalGame(role);
                 result.notices.forEach(n => { if (n.timing === 'lever') emit(E.NOTICE, n); });
+                // AT 直撃のゲームは、チャンス目A (ベルの小V) で止める (2026-10-21 ユーザー指定。リプレイ扱いなので次のゲームは無料)
+                if (result.direct) shape = 'chanceA';
             }
             s.forcedRole = null;
             if (!shape) shape = role === 'none' ? 'none' : shapeFor(role);
@@ -652,7 +654,8 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         const cols = gridAt(spin.control.tops);
         // 中段の入賞か、役で払い出す小役 (チェリー・スイカ。チャンス目はリプレイ扱い)
         const ownShape = spin.shape !== 'koori';
-        const win = middleWin(cols) || (ownShape ? ROLE_WIN[spin.role] || null : null);
+        const chanceShape = spin.shape === 'chanceA' || spin.shape === 'chanceB';
+        const win = middleWin(cols) || (chanceShape ? 'replay' : ownShape ? ROLE_WIN[spin.role] || null : null);
         const payout = config.payout[spin.role] || 0;
         if (spin.role === 'replay' || spin.role === 'chance') s.free = true;
         s.credit += payout;
