@@ -34,6 +34,7 @@ export const REG_CARDS = BIG_CARDS.filter(c => ['koori', 'onioni'].includes(c.wh
 // エピソードBIG の話。scenes は5G ごとに進む場面 (50G で10場面。セリフは長いと折り返し、3行まで)
 //   bg: 背景 / cast: 出るキャラ ('id' か { id, hidden: true } = 正体不明の影絵) / who: 話す人 / line: セリフ
 //   then: { who, line } か、その配列。同じ場面でセリフのあとに順に出す / cast の drop: true で上から落ちてくる / crowd: 群れで出すキャラ (右側に並ぶ) / chase: true で群れに追いかけ回される
+//   brawl: true で大乱戦 (土けむりのまわりで cast がもみ合う) / vs: true で cast の2人がにらみ合い、まんなかに「VS」
 //   bg: 'home' (こおりくんの家) / 'town' (夕焼けの町) / 'tower' (摩天楼の前・全体) / 'lobby' (摩天楼1階) / 'middle' (中間階層) / 'boss' (四天王の階) / 'top' (最上階)
 export const EPISODES = [
     {
@@ -109,13 +110,53 @@ export const EPISODES = [
         ]
     },
     {
-        title: '四天王',
+        title: '大乱戦',   // 題名は仮 (ユーザーに確認する)
         scenes: [
-            { bg: 'boss', cast: ['daishi'], who: 'ダイシ', line: '22階を通りたくば、修行を積め' },
-            { bg: 'boss', cast: ['zumitani'], who: 'ズミタニ', line: '33階…影からおまえを見ている' },
-            { bg: 'boss', cast: ['runaya'], who: 'ルナヤ', line: '44階は月の魔法でおもてなし♪' },
-            { bg: 'boss', cast: ['nozoema'], who: 'ノゾエマ', line: '55階、この刀を越えてみせよ' },
-            { bg: 'top', cast: ['maou'], who: '大魔王ASO', line: '財宝がほしければ、56階まで来るがいい' }
+            // 第5話はユーザーが決めた流れ (2026-10-21) をもとに Claude が書いたセリフ。直してもらう
+            // 3チーム (ばりきつよめ・5DX・お願いマッスル) の戦い
+            {
+                bg: 'middle', brawl: true, cast: ['koori', 'okagappa', 'dake', 'ueno', 'yamamou', 'ikekimu'], who: 'だけさん', line: 'この鍛え上げたこぶしを受けてみろ！',
+                then: { who: 'ウエノーブル', line: '甘い！我が筋肉の前では、すべてがそよ風よ！' }
+            },
+            {
+                bg: 'middle', brawl: true, cast: ['tamu', 'hibikimakuri', 'yasu', 'shibata', 'onioni', 'yamamou'], who: 'やまもぅ', line: 'モォーーッ！牛の底力を思い知れ！',
+                then: { who: 'イケキム', line: 'チッ…しつこい奴らだ。' }
+            },
+            // チームASK-3 が乱入
+            {
+                bg: 'middle', cast: ['sasaki', { id: 'asahara', drop: true }, 'kotani'], who: 'KING.ASAHARA', line: 'フハハハ！ずいぶん楽しそうではないか。財宝は、このCS城の主がいただく！',
+                then: [{ who: 'Mr.KOTANI', line: '現在、3チームとも消耗しています。我々の勝率は87.4%です。' }, { who: 'Mr.SASAKI', line: 'よっしゃ！いっちょやったりますか！' }]
+            },
+            {
+                bg: 'middle', cast: ['koori', 'yasu', 'dake', 'tamu', 'onioni'], who: 'おにおに', line: 'ASAHARA…！やはり来ていたか。',
+                then: { who: 'こおりくん', line: 'ちょ、ちょっと！？チームが4つになっちゃったよ！？' }
+            },
+            // 大乱戦
+            {
+                bg: 'middle', brawl: true, cast: ['koori', 'okagappa', 'sasaki', 'ueno', 'onioni', 'asahara', 'hibikimakuri', 'ikekimu'], who: '全員', line: 'うおおおおおお！！',
+                then: [{ who: 'ひびきまくり', line: 'ここすっごいひびくよ～～！' }, { who: 'シバター', line: '4チームの大乱戦！撮れ高しかない！んなああ～' }]
+            },
+            // こおりくんの提案
+            { bg: 'middle', cast: ['koori'], who: 'こおりくん', line: 'みんな、ちょっと待って！！こんなことしてたら、四天王のところに着く前にみんなボロボロだよ！' },
+            {
+                bg: 'middle', cast: ['koori', 'okagappa', 'ueno', 'asahara'], who: 'こおりくん', line: '財宝はみんなで山分けしよう！それで、みんなで協力して摩天楼のてっぺんを目指すんだ！',
+                then: { who: 'Mr.KOTANI', line: '4チームで協力した場合…突破率は大きく上がります。' }
+            },
+            // 5DX とお願いマッスルは合意
+            {
+                bg: 'middle', cast: ['okagappa', 'hibikimakuri', 'yamamou', 'shibata', 'ueno', 'ikekimu'], who: 'ウエノーブル', line: '山分けか…よかろう！妻への黄金のネックレスさえ手に入れば、それでよい！',
+                then: [{ who: 'おかがっぱ', line: '俺たち5DXも乗ったぜ　イェア！' }, { who: 'やまもぅ', line: '牛は群れで生きる生き物だからな！' }]
+            },
+            // KING.ASAHARA は拒否
+            {
+                bg: 'middle', cast: ['sasaki', 'asahara', 'kotani'], who: 'KING.ASAHARA', line: 'くだらん！このワシが、ほかの者と仲良く山分けだと！？ふざけるな！',
+                then: { who: 'KING.ASAHARA', line: '…だが、ワシに勝てたら協力してやってもよい。さあ、だれが相手だ？' }
+            },
+            // おにおにが受けて立つ
+            {
+                bg: 'middle', vs: true, cast: ['onioni', 'asahara'], who: 'おにおに', line: 'その勝負、SE城の主、このおにおにが受けて立つ！',
+                then: { who: 'KING.ASAHARA', line: 'おにおに…！望むところだ！' }
+            }
         ]
     }
 ];

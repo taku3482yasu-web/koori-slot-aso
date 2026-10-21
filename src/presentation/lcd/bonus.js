@@ -256,6 +256,65 @@ function drawChase(ctx, t, k, scene) {
     });
 }
 
+// 大乱戦: まんなかの土けむりのまわりで、キャラが入り乱れてもみ合う (ドカッ・バキッ と星が飛ぶ)
+const BRAWL_WORDS = ['ドカッ', 'バキッ', 'ボコッ', 'ゴスッ'];
+function drawBrawl(ctx, t, scene) {
+    const cast = scene.cast.map(castOf);
+    const cx = W / 2, cy = 82;
+    const rnd = seeded(13);
+    // うしろの土けむり
+    for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2 + t / 900;
+        const rr = 46 + rnd() * 14 + Math.sin(t / 160 + i) * 4;
+        ctx.fillStyle = i % 2 ? 'rgba(230,220,240,.85)' : 'rgba(200,190,215,.85)';
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a) * rr * 1.5, cy + Math.sin(a) * rr * 0.55, 18 + rnd() * 10, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // キャラはけむりのふちを回りながら、ガタガタとゆれる。奥 (上) にいるキャラから順に描く
+    cast.map((c, i) => ({ c, i, a: (i / cast.length) * Math.PI * 2 + t / 1400 }))
+        .sort((p, q) => Math.sin(p.a) - Math.sin(q.a))
+        .forEach(({ c, i, a }) => {
+            const x = cx + Math.cos(a) * 96 + Math.sin(t / 50 + i * 3) * 2;
+            const ground = cy + 36 + Math.sin(a) * 18 - Math.abs(Math.sin(t / 110 + i)) * 6;
+            fitChar(ctx, c.id, x, ground, 34, 40, { frame: frameOf(t + i * 80, 140), flip: Math.cos(a) > 0 }, 2);
+        });
+    // ドカッ・バキッ と星
+    for (let i = 0; i < 3; i++) {
+        const step = Math.floor(t / 420) + i * 7;
+        const r2 = seeded(step * 31 + 5);
+        const x = cx - 70 + r2() * 140, y = cy - 30 + r2() * 50;
+        const age = (t % 420) / 420;
+        if (age > 0.8) continue;
+        ctx.save();
+        ctx.globalAlpha = 1 - age;
+        ctx.beginPath();
+        for (let p = 0; p < 10; p++) {
+            const ang = (p / 10) * Math.PI * 2, rr = p % 2 ? 4 : 10;
+            ctx.lineTo(x + Math.cos(ang) * rr, y + Math.sin(ang) * rr);
+        }
+        ctx.closePath();
+        ctx.fillStyle = '#ffe040';
+        ctx.fill();
+        text(ctx, BRAWL_WORDS[step % BRAWL_WORDS.length], x + 4, y - 12, { size: 12, color: '#ffffff', lw: 3, stroke: '#a01010' });
+        ctx.restore();
+    }
+}
+
+// VS: 2人が左右からにらみ合い、まんなかに「VS」
+function drawVs(ctx, t, scene) {
+    const [l, r] = scene.cast.map(castOf);
+    rays(ctx, W / 2, 80, ['rgba(255,80,40,.5)', 'rgba(0,0,0,0)'], 24, 0.5);
+    const pulse = 1 + Math.sin(t / 120) * 0.04;
+    fitChar(ctx, l.id, 70, 122, 70, 64, { frame: frameOf(t, 400) }, 2.8);
+    fitChar(ctx, r.id, W - 70, 122, 70, 64, { frame: frameOf(t, 400), flip: true }, 2.8);
+    ctx.save();
+    ctx.translate(W / 2, 70);
+    ctx.scale(pulse, pulse);
+    text(ctx, 'VS', 0, 0, { size: 34, color: '#ffe040', lw: 7, stroke: '#a01010' });
+    ctx.restore();
+}
+
 const DROP_MS = 600;   // 落ちてくるキャラが着地するまで
 
 function drawEpisode(ctx, t, b) {
@@ -282,6 +341,8 @@ function drawEpisode(ctx, t, b) {
     (EP_BG[scene.bg] || EP_BG.tower)(ctx, t);
     const talking = say.who && frameOf(t, 220) && k2 < 2400;
     if (scene.chase) drawChase(ctx, t, k, scene);
+    else if (scene.brawl) drawBrawl(ctx, t, scene);
+    else if (scene.vs) drawVs(ctx, t, scene);
     else {
         // 出るキャラを左から並べる (右半分にいるキャラは左を向く)。群れがいるときは、キャラを左に寄せて群れを右に置く
         const cast = scene.cast.map(castOf);
