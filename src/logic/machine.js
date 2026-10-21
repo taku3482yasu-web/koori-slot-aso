@@ -466,7 +466,9 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
     }
 
     function endAt() {
-        emit(E.AT_END, { games: s.at.total, payout: s.at.payout, hint: rng.weighted(config.show.hint[s.setting] || config.show.hint[1]) });
+        const tr = config.show.trophy;
+        const trophy = rng.chance(tr.rate) ? rng.weighted(tr.weights[s.setting] || tr.weights[1]) : null;
+        emit(E.AT_END, { games: s.at.total, payout: s.at.payout, hint: rng.weighted(config.show.hint[s.setting] || config.show.hint[1]), trophy });
         s.at = null;
         s.phase = 'normal';
         updateStage();
