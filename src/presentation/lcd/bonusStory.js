@@ -212,5 +212,55 @@ export const EPISODES = [
                 then: [{ who: 'やまもぅ', line: '牛の角は、鉄だって貫く！モォーー！' }, { who: 'こおりくん', line: 'ありがとう！上で待ってるからね！' }]
             }
         ]
+    },
+    {
+        title: '頂上へ',   // 題名は仮 (ユーザーに確認する)
+        scenes: [
+            // 第7話はユーザーが決めた流れ (2026-10-21) をもとに Claude が書いたセリフ。直してもらう
+            // 44階: ルナヤと奈架多ドラゴン。チームASK-3 が残る
+            {
+                bg: 'boss', floor: '44F', cast: ['runaya', 'nakata'], who: 'ルナヤ', line: 'よく来たわね。この摩天楼を作ったのは、わたしよ。…よく来たわね。あら、もう言ったかしら？',
+                then: { who: '奈架多ドラゴン', line: 'グオオオ…（力加減…力加減…）' }
+            },
+            {
+                bg: 'boss', floor: '44F', cast: ['sasaki', 'asahara', 'kotani'], who: 'KING.ASAHARA', line: 'ここはワシらASK-3が引き受けてやる。おにおに、ワシに勝ったのだ。上で負けることは許さんぞ！',
+                then: [{ who: 'Mr.KOTANI', line: 'ドラゴンの攻撃パターン、すでに記録済みです。' }, { who: 'Mr.SASAKI', line: 'ほな、先に行っといてください！' }]
+            },
+            {
+                bg: 'boss', floor: '44F', cast: ['sasaki', 'asahara', 'kotani', 'nakata', 'runaya'], who: 'ルナヤ', line: '月の力よ、わたしに力を…！月の力よ…あら、これも言ったかしら？',
+                then: { who: 'おにおに', line: '頼んだぞ、ASAHARA！' }
+            },
+            // 55階: ノゾエマ。チームお願いマッスルが戦う
+            {
+                bg: 'boss', floor: '55F', cast: ['nozoema'], who: 'ノゾエマ', line: 'よくぞここまで来た。…だが、その前に見よ。この鍛え抜かれた筋肉を！',
+                then: { who: 'こおりくん', line: 'え…なんで鏡に向かってポーズしてるの…？' }
+            },
+            {
+                bg: 'boss', floor: '55F', cast: ['shibata', 'ueno', 'ikekimu', 'nozoema'], who: 'ウエノーブル', line: 'ほう…なかなかの筋肉。だが、1日26時間鍛えた我が筋肉には及ばぬ！',
+                then: { who: 'ノゾエマ', line: '…面白い。この刀と筋肉で、切り伏せてくれよう。' }
+            },
+            {
+                bg: 'boss', floor: '55F', vs: true, cast: ['ueno', 'nozoema'], who: 'イケキム', line: 'ここはオレたちが止める。行け、こおり。',
+                then: [{ who: 'シバター', line: '四天王最強 VS 筋肉貴族！撮れ高しかない！んなああ～' }, { who: 'ウエノーブル', line: '行け！そして妻へのネックレスも見つけてきてくれ！' }]
+            },
+            // 56階 (最上階): こおりくんとおにおにが大魔王ASO と対面
+            {
+                bg: 'top', floor: '56F', cast: ['koori', 'onioni'], who: 'こおりくん', line: 'ついに…てっぺんだ…！',
+                then: { who: 'おにおに', line: '気を抜くな、こおり。…何か来るぞ。' }
+            },
+            {
+                bg: 'top', floor: '56F', cast: [{ id: 'maou', drop: true }], who: '大魔王ASO', line: 'よくぞ来た、挑戦者よ。数百年、この時を待ちわびたぞ。',
+                then: { who: '大魔王ASO', line: '財宝が欲しいか？ならば、我を倒してみせよ！' }
+            },
+            {
+                bg: 'top', floor: '56F', cast: ['koori', 'onioni', 'maou'], who: 'こおりくん', line: '借金を返して…こおりは生きていくんだ！',
+                then: { who: 'おにおに', line: 'いくぞ、こおり！下で戦っているみんなの分までな！' }
+            },
+            // 最後の戦闘が始まる
+            {
+                bg: 'top', floor: '56F', vs: true, cast: ['koori', 'maou'], who: '大魔王ASO', line: '来い！我が力、その身で味わうがよい！',
+                then: { who: 'こおりくん・おにおに', line: 'うおおおおおお！！' }
+            }
+        ]
     }
 ];

@@ -2498,8 +2498,11 @@ function seeded(seed) {
     };
 }
 
+// 体に文字があるキャラ (大魔王ASO の「ASO」・マキビコンの「MK4」) は、左右反転すると鏡文字になるので反転しない
+const NO_FLIP = new Set(['maou', 'makibikon']);
+
 function ch(ctx, id, x, ground, opts = {}) {
-    drawArt(ctx, ART[id], x, ground, opts);
+    drawArt(ctx, ART[id], x, ground, NO_FLIP.has(id) ? { ...opts, flip: false } : opts);
 }
 
 // weight: 太さ ('700' など。BODY の字を太くするとき)
