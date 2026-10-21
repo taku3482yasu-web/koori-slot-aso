@@ -129,6 +129,7 @@ html { scroll-behavior: smooth; }
     <div class="wrap" role="tablist">
       <button role="tab" id="tab-screen" aria-selected="true" data-doc="screen">画面設計書</button>
       <button role="tab" id="tab-chars" aria-selected="false" data-doc="chars">キャラ設計書</button>
+      <button role="tab" id="tab-story" aria-selected="false" data-doc="story">ストーリー</button>
     </div>
   </nav>
 </header>
@@ -145,6 +146,9 @@ html { scroll-behavior: smooth; }
 </script>
 <script type="text/markdown" id="md-chars">
 @@CHARS@@
+</script>
+<script type="text/markdown" id="md-story">
+@@STORY@@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script>
@@ -226,9 +230,10 @@ return { SCENES, CHARACTERS, drawCharacterCard };
 
   const docs = {
     screen: document.getElementById('md-screen').textContent,
-    chars: document.getElementById('md-chars').textContent
+    chars: document.getElementById('md-chars').textContent,
+    story: document.getElementById('md-story').textContent
   };
-  const files = { 'screen-design.md': 'screen', 'characters.md': 'chars' };
+  const files = { 'screen-design.md': 'screen', 'characters.md': 'chars', 'story.md': 'story' };
   const art = document.getElementById('doc');
   const toc = document.getElementById('toc');
 
@@ -292,8 +297,8 @@ return { SCENES, CHARACTERS, drawCharacterCard };
   }
 
   document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => select(b.dataset.doc)));
-  let start = location.hash === '#chars' ? 'chars' : 'screen';
-  if (!location.hash) { try { start = localStorage.getItem('aso-doc-tab') === 'chars' ? 'chars' : 'screen'; } catch (e) {} }
+  let start = location.hash === '#chars' ? 'chars' : location.hash === '#story' ? 'story' : 'screen';
+  if (!location.hash) { try { const k = localStorage.getItem('aso-doc-tab'); start = k === 'chars' || k === 'story' ? k : 'screen'; } catch (e) {} }
   select(start);
 
   // 目次の今いる章

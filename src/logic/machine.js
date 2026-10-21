@@ -305,30 +305,55 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
 
     // ----- ボーナス (仮組) -----
     // 当選したゲームのレバーで「こおりを狙え」(仕様書: 当選 → カットイン → こおりくん揃い)。
-    // AT 中のボーナスは、最初のゲームで相手が登場し、揃ったゲームの終わりに勝利、当たらないまま最後のゲームなら敗北 (docs/events.md)
+    // AT 中のボーナスは、最初のゲームで相手が登場し、揃ったゲームの終わりに勝利。当たらないまま最後のゲームに来たら、
+    // 相手との一騎打ち「ラストジャッジ」(at:bossJudge) で勝ち負けを決める。レア役では仲間が攻撃する (at:bossAttack) (docs/events.md v0.6)
     // 戻り値: このゲームの出目の形 (狙えのときは 'koori')
     function bonusGame(role) {
         const b = s.bonus;
         let shape = null;
-        if (b.inAt && b.type !== 'epbig' && b.left === config.bonusGames[b.type]) {
+        const battle = b.inAt && b.type !== 'epbig';
+        if (battle && b.left === config.bonusGames[b.type]) {
             b.boss = rng.weighted(config.show.boss[b.willWin ? 'win' : 'lose']);
             emit(E.AT_BOSS, { boss: b.boss, final: false, win: null });
         }
         // 通常のボーナスは役で抽選。AT 中のボーナスは、始まりで決めたゲーム (winAt) で当てる (相手を当たりやすさに合わせるため)【仮組】
+        // winAt が 1 (最後のゲーム) のときは「こおりを狙え」ではなく、ラストジャッジで勝つ
         const hit = b.inAt
-            ? b.willWin && b.left === b.winAt
+            ? b.willWin && b.winAt > 1 && b.left === b.winAt
             : RARE.concat('bell').includes(role) && rng.chance((config.bonusAt[role] || 0) / 100);
         if (!b.atWon && b.type !== 'epbig' && hit) {
             b.atWon = true;
             emit(E.BONUS_NERAE, { color: rng.weighted(config.show.cutin.real), win: true });
             shape = 'koori';
             if (b.inAt) b.bossWin = true;
-        } else if (b.inAt && b.type !== 'epbig' && !b.atWon && b.left === 1) {
-            emit(E.AT_BOSS, { boss: b.boss, final: true, win: false });
+        } else if (battle && !b.atWon && b.left === 1) {
+            // ラストジャッジ: 勝つときだけ、こおりくんの代わりに仲間が必殺技を放つことがある (確定)
+            const cfg = config.show.bossJudge;
+            const win = Boolean(b.willWin && b.winAt === 1);
+            if (win) b.atWon = true;
+            emit(E.AT_BOSS_JUDGE, { boss: b.boss, win, finisher: win && rng.chance(cfg.allyFinish) ? rng.pick(cfg.allies) : 'koori' });
+        } else if (battle && !b.atWon && RARE.includes(role)) {
+            emit(E.AT_BOSS_ATTACK, bossAttack(b));
         }
         b.left--;
         emit(E.BONUS_GAME, { bonus: b.type, left: b.left });
         return shape;
+    }
+
+    // AT 中のボーナスのレア役: 仲間の攻撃の見せ方 (期待度に関わるので内部処理が抽選)【仮組】
+    // このボーナスで特化ゾーンに当たるなら当たりやすく・赤や「畳みかけろ！」が出やすく、金・虹は当たるときだけ
+    function bossAttack(b) {
+        const cfg = config.show.bossAttack[b.willWin ? 'hot' : 'cold'];
+        const move = rng.weighted(cfg.move);
+        const result = rng.weighted(cfg.result);
+        const hit = result === 'hit';
+        return {
+            boss: b.boss,
+            move,
+            result,
+            color: hit ? rng.weighted(cfg.color) : 'white',
+            shout: hit && rng.chance(cfg.shout)
+        };
     }
 
     function finishBonus() {
@@ -655,7 +680,15 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             // AT 中にボーナス確定にする (AT 中のボーナス。docs/events.md 3章)
             atBonus: (type = 'big') => { if (s.phase === 'at' && !s.tokka && !s.spin) winBonus(type); },
             // AT の残りを数ゲームにする (終了画面・ラストジャッジの確認)
-            atEndSoon: () => { if (s.at) s.at.left = Math.min(s.at.left, 3); }
+            atEndSoon: () => { if (s.at) s.at.left = Math.min(s.at.left, 3); },
+            // AT 中のボーナスを、次のゲームでラストジャッジにする (win: 勝つか。v0.6。内部処理の担当が用意する)
+            bossJudge: (win = true) => {
+                const b = s.bonus;
+                if (s.phase !== 'bonus' || !b || !b.inAt || b.type === 'epbig' || b.atWon || !b.boss || s.spin || b.left < 1) return;
+                b.left = 1;
+                b.willWin = win;
+                b.winAt = win ? 1 : 0;
+            }
         }
     };
 
@@ -682,7 +715,8 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             if (b.inAt) {
                 // AT 中のボーナスで特化ゾーンに当たるか・何ゲーム目かを先に決める【仮組】(BIG 約40%・REG 約20%)
                 b.willWin = rng.chance(b.type === 'reg' ? 0.2 : 0.4);
-                b.winAt = rng.int(2, b.left - 1);
+                // 1 は最後のゲーム (ラストジャッジで勝つ)
+                b.winAt = rng.chance(config.show.bossJudge.byJudge) ? 1 : rng.int(2, b.left - 1);
             }
             emit(E.BONUS_START, { bonus: b.type, games: b.left, inAt: b.inAt });
         } else if (s.phase === 'bonus') finishBonus();

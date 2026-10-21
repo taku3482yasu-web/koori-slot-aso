@@ -2,7 +2,7 @@
 // 画面設計書・キャラ設計書をブラウザで読めるページ (docs/design.html) にまとめる
 // ---------------------------------------------------------------------
 // node tools/build-design.mjs
-// docs/*.md と、ドット絵 (src/presentation/art)・画面イメージ (tools/design/mockups.js) を1つの HTML に入れる。
+// docs/*.md (画面設計書・キャラ設計書・ストーリー) と、ドット絵 (src/presentation/art)・画面イメージ (tools/design/mockups.js) を1つの HTML に入れる。
 // 書類か絵を直したら、これを動かして作り直す。
 // =====================================================================
 
@@ -26,7 +26,7 @@ const art = MODULES.map(p => `// ----- ${p} -----\n` + read(p)
     .replace(/^import [^;]*;$/gm, '')
     .replace(/^export (const|function) /gm, '$1 ')).join('\n');
 
-for (const md of ['docs/screen-design.md', 'docs/characters.md']) {
+for (const md of ['docs/screen-design.md', 'docs/characters.md', 'docs/story.md']) {
     if (read(md).includes('</script')) throw new Error(`${md} に </script があるとページに入れられません`);
 }
 
@@ -37,7 +37,8 @@ const html = read('tools/design/template.html')
     .replace('@@ART@@', () => art)
     .replace('@@GLYPHS@@', () => glyphs + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-!')
     .replace('@@SCREEN@@', () => read('docs/screen-design.md'))
-    .replace('@@CHARS@@', () => read('docs/characters.md'));
+    .replace('@@CHARS@@', () => read('docs/characters.md'))
+    .replace('@@STORY@@', () => read('docs/story.md'));
 
 writeFileSync(join(root, 'docs/design.html'), html);
 console.log(`docs/design.html (${Math.round(html.length / 1024)} KB)`);

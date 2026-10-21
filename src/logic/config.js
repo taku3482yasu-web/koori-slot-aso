@@ -154,6 +154,19 @@ export const CONFIG = {
             win: { daishi: 10, zumitani: 15, runaya: 20, nozoema: 25, maou: 30 },
             lose: { daishi: 45, zumitani: 30, runaya: 15, nozoema: 8, maou: 2 }
         },
+        // AT 中のボーナスの戦闘で、レア役のときの仲間の攻撃 (at:bossAttack。v0.6)【仮】
+        // hot: このボーナスで特化ゾーンに当たる (まだ当たっていない) / cold: 当たらない。金・虹は hot だけ (確定)
+        bossAttack: {
+            hot: { move: { cutin: 50, special: 50 }, result: { hit: 75, guard: 15, dodge: 10 }, color: { white: 35, red: 40, gold: 17, rainbow: 8 }, shout: 0.5 },
+            cold: { move: { cutin: 80, special: 20 }, result: { hit: 35, guard: 35, dodge: 30 }, color: { white: 85, red: 15 }, shout: 0.08 }
+        },
+        // AT 中のボーナスの最後のゲームの一騎打ち「ラストジャッジ」(at:bossJudge。v0.6)【仮】
+        // byJudge: 特化ゾーンに当たるボーナスのうち、ラストジャッジで勝つ割合 / allyFinish: 勝つときに仲間が必殺技を放つ割合 (確定)
+        bossJudge: {
+            byJudge: 0.3,
+            allyFinish: 0.45,
+            allies: ['onioni', 'yasu', 'tamu', 'dake', 'okagappa', 'hibikimakuri', 'yamamou', 'sasaki', 'kotani', 'asahara', 'shibata', 'ikekimu', 'ueno']
+        },
         // 設定示唆トロフィー (AT 終了画面に落ちてくる)。rate: 出る率 / weights: 出たときの色 (設定ごと)【仮: 前作の値】
         trophy: {
             rate: 0.5,
