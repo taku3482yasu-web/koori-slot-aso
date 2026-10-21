@@ -40,6 +40,7 @@ export const REG_CARDS = BIG_CARDS.filter(c => ['koori', 'onioni'].includes(c.wh
 //     ('fire' で赤いビーム)、split: true で相手が真っ二つ。cast の rainbow: true で虹色の光、sword: true で大魔王絶対殺す剣を持つ
 //   gather: [キャラ] で cast の先頭に、まわりのキャラから力が集まる (rainbow: true で虹色の光も) / awaken: true で覚醒 (虹色・剣が変わる)
 //   treasure: true で財宝の山
+//   tv: '字幕' でテレビのニュース (キャラは左に寄る) / gurgle: true でお腹の音 / tsuzuku: true で最後のセリフのあとに「つづく」
 //   bg: 'home' (こおりくんの家) / 'town' (夕焼けの町) / 'tower' (摩天楼の前・全体) / 'lobby' (摩天楼1階) / 'middle' (中間階層) / 'boss' (四天王の階) / 'top' (最上階)
 export const EPISODES = [
     {
@@ -380,6 +381,54 @@ export const EPISODES = [
                     { who: 'こおりくん', line: 'うん！これで…こおり、生きていける！' },
                     { who: 'ナレーション', line: 'こうして、財宝を山分けしたみんなは、それぞれの帰る場所へと帰っていった。' }
                 ]
+            }
+        ]
+    },
+    {
+        title: 'そして、また…',   // 題名は仮 (ユーザーに確認する)
+        scenes: [
+            // 第10話はユーザーが決めた流れ (2026-10-21) をもとに Claude が書いたセリフ。直してもらう
+            // 最後のセリフ「どうしよう。こおり生きていけないよ～～！！」と「つづく」はユーザー指定
+            // 摩天楼が消えたニュース
+            {
+                bg: 'home', tv: '臨時ニュース　ASO摩天楼が消滅　やまぐっち・おかおか間の行き来が再開', cast: ['koori'], who: 'アナウンサー', line: '臨時ニュースです。やまぐっちとおかおかの境目に現れた「ASO摩天楼」が、昨夜、こつぜんと姿を消しました。',
+                then: { who: 'アナウンサー', line: 'これにより、やまぐっちとおかおかの行き来が、ふたたびできるようになりました。' }
+            },
+            {
+                bg: 'home', tv: '臨時ニュース　ASO摩天楼が消滅　やまぐっち・おかおか間の行き来が再開', cast: ['koori'], who: 'こおりくん', line: 'へぇ～、摩天楼、なくなっちゃったんだ。なんだかさみしいな～。'
+            },
+            // 日課の大腸炎とのおしゃべり
+            {
+                bg: 'home', gurgle: true, cast: ['koori'], who: 'こおりくん', line: 'さてと…日課の、大腸炎とのおしゃべりタイムだ！大腸炎くん、おはよう！',
+                then: { who: '大腸炎', line: 'ギュルルル…ゴロゴロ…' }
+            },
+            {
+                bg: 'home', gurgle: true, cast: ['koori'], who: 'こおりくん', line: 'え？昨日は食べすぎたって？あはは、たしかに打ち上げ、すごかったもんね～！',
+                then: { who: '大腸炎', line: 'ピーーー…' }
+            },
+            // おにおにが家に来る
+            {
+                bg: 'home', cast: ['koori', { id: 'onioni', drop: true }], who: 'おにおに', line: 'おい、こおり！いるか！',
+                then: { who: 'こおりくん', line: 'あ、おにおに！どうしたの？' }
+            },
+            {
+                bg: 'home', cast: ['koori', 'onioni'], who: 'おにおに', line: '金を返せ。',
+                then: { who: 'こおりくん', line: 'え？借金は財宝で全部返したよね？何のこと？' }
+            },
+            {
+                bg: 'home', cast: ['koori', 'onioni'], who: 'おにおに', line: '忘れたのか？摩天楼突破の打ち上げで、おまえが「全員分おごる！」って言って、財宝を全部使い果たしただろう。'
+            },
+            {
+                bg: 'home', cast: ['koori', 'onioni'], who: 'おにおに', line: 'それで足りない分を、また俺から借りたじゃないか。',
+                then: { who: 'こおりくん', line: '……あ。' }
+            },
+            {
+                bg: 'home', cast: ['koori', 'onioni', 'tomoishi'], who: 'こおりくん', line: 'お、思い出した…焼肉…カラオケ…二次会…三次会…',
+                then: { who: 'ともいし', line: 'こおりなにしよっと！' }
+            },
+            // おしまいは「つづく」
+            {
+                bg: 'home', tsuzuku: true, cast: ['koori', 'onioni'], who: 'こおりくん', line: 'どうしよう。こおり生きていけないよ～～！！'
             }
         ]
     }

@@ -201,9 +201,13 @@ function wrapLine(ctx, line) {
             let n = 1;
             while (n < cs.length && ctx.measureText(cs.slice(0, n + 1).join('')).width <= LINE_W) n++;
             if (n < cs.length) {
-                while (n < cs.length && PUNCT.includes(cs[n])) n++;
+                // 行の頭に「。」」などが来るときは、その前の字ごと次の行へ送る (送れないほど続くときだけ、前の行にはみ出させる)
+                let m = n;
+                while (m > 1 && PUNCT.includes(cs[m])) m--;
+                if (m > n - 6) n = m;
+                else while (n < cs.length && PUNCT.includes(cs[n])) n++;
                 const cut = cs.slice(0, n).findLastIndex(c => '。！？!?　 '.includes(c));
-                if (cut >= 0 && cut >= n - 8 && cut + 1 < n) n = cut + 1;
+                if (cut >= 0 && cut >= n - 8 && cut + 1 < n && !PUNCT.includes(cs[cut + 1])) n = cut + 1;
             }
             rows.push(cs.slice(0, n).join(''));
             cs = cs.slice(n);
@@ -559,6 +563,39 @@ function drawTreasureFront(ctx, t) {
     }
 }
 
+// テレビのニュース: 画面に摩天楼のあった場所と「臨時ニュース」、下に字幕が流れる
+function drawTv(ctx, t, caption) {
+    const x = 190, y = 42, w = 108, h = 62;
+    rect(ctx, x - 6, y - 6, w + 12, h + 12, '#2a2a30');
+    rect(ctx, x + w / 2 - 14, y + h + 6, 28, 8, '#2a2a30');
+    rect(ctx, x + w / 2 - 26, y + h + 14, 52, 4, '#1a1a20');
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    rect(ctx, x, y, w, h, vgrad(ctx, y, y + h, ['#6ab0e0', '#d8f0ff']));
+    // 摩天楼があった場所 (点線のシルエット)
+    ctx.save();
+    ctx.globalAlpha = 0.35 + Math.sin(t / 300) * 0.1;
+    tower(ctx, x + w / 2, y + h - 18, 52, '#5a6a80');
+    ctx.restore();
+    rect(ctx, x, y + h - 18, w, 18, '#3a5a3a');
+    rect(ctx, x, y, 58, 12, '#c01020');
+    text(ctx, '臨時ニュース', x + 29, y + 6.5, { size: 8, color: '#ffffff', stroke: null, font: BODY, weight: '700' });
+    rect(ctx, x, y + h - 14, w, 14, 'rgba(0,0,40,.85)');
+    ctx.font = `8px ${BODY}`;
+    const cw = ctx.measureText(caption).width + 40;
+    const off = (t / 25) % cw;
+    text(ctx, caption, x + w - off, y + h - 6.5, { size: 8, align: 'left', color: '#ffffff', stroke: null, font: BODY });
+    text(ctx, caption, x + w - off + cw, y + h - 6.5, { size: 8, align: 'left', color: '#ffffff', stroke: null, font: BODY });
+    ctx.restore();
+    // 画面の反射
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    rect(ctx, x + 6, y + 4, 20, h - 8, '#ffffff');
+    ctx.restore();
+}
+
 const DROP_MS = 600;   // 落ちてくるキャラが着地するまで
 
 function drawEpisode(ctx, t, b) {
@@ -595,11 +632,16 @@ function drawEpisode(ctx, t, b) {
     else {
         // 出るキャラを左から並べる (右半分にいるキャラは左を向く)。群れがいるときは、キャラを左に寄せて群れを右に置く
         if (scene.treasure) drawTreasureBack(ctx, t);
+        if (scene.tv) drawTv(ctx, t, scene.tv);
         const cast = scene.cast.map(castOf);
         const n = cast.length;
-        const right = scene.crowd ? 160 : W - 50;
+        // 群れやテレビがあるときは、キャラを左に寄せる
+        const left = scene.crowd || scene.tv;
+        const right = left ? 160 : W - 50;
+        let firstX = W / 2;
         cast.forEach((c, i) => {
-            const x = n === 1 ? (scene.crowd ? 100 : W / 2) : (scene.crowd ? 34 : 50) + i * ((right - (scene.crowd ? 34 : 50)) / (n - 1 || 1));
+            const x = n === 1 ? (left ? 100 : W / 2) : (left ? 34 : 50) + i * ((right - (left ? 34 : 50)) / (n - 1 || 1));
+            if (i === 0) firstX = x;
             const big = c.id === 'maou' ? 72 : 60;
             const box = scene.crowd && n > 3 ? 34 : n > 4 ? 52 : 64;
             const opts = { frame: frameOf(t, 500), flip: n > 1 && x > W / 2 };
@@ -620,6 +662,16 @@ function drawEpisode(ctx, t, b) {
         });
         if (scene.crowd) drawCrowd(ctx, t, scene.crowd, 196, 312, true);
         if (scene.treasure) drawTreasureFront(ctx, t);
+        // お腹の音: 先頭のキャラのまわりに「ギュルル…」が浮かぶ
+        if (scene.gurgle) {
+            ['ギュルル…', 'ゴロゴロ…'].forEach((g, i) => {
+                const ph = (t / 900 + i * 0.5) % 1;
+                ctx.save();
+                ctx.globalAlpha = 1 - ph;
+                text(ctx, g, firstX + (i ? -34 : 34) + Math.sin(t / 150 + i) * 3, 96 - ph * 20, { size: 9, color: '#ffe0f0', lw: 3, stroke: '#7a2a4a' });
+                ctx.restore();
+            });
+        }
     }
     ctx.restore();
     // 場面が変わったときは少し暗くしてから明るく
@@ -643,6 +695,18 @@ function drawEpisode(ctx, t, b) {
         const y = rows.length === 1 ? 149 : top + 20 + r * 10;
         text(ctx, shown, 20, y, { size, align: 'left', color: '#ffffff', stroke: null, font: BODY });
     });
+    // つづく: 最後のセリフが出きってから
+    if (scene.tsuzuku && sayIndex === says.length - 1) {
+        const after = k2 - ([...say.line].length * 45 + 800);
+        if (after > 0) {
+            const a = Math.min(1, after / 600);
+            rect(ctx, 0, 0, W, H, `rgba(0,0,0,${0.55 * a})`);
+            ctx.save();
+            ctx.globalAlpha = a;
+            text(ctx, 'つづく', W - 20, 92, { size: 26, align: 'right', color: '#ffffff', lw: 6, stroke: '#1b3a6b' });
+            ctx.restore();
+        }
+    }
 }
 
 // ----- 下の帯: 獲得枚数・残りゲーム数・進み具合。AT確定のあとは右上に「AT確定」 -----
