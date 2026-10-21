@@ -78,12 +78,12 @@ machine.on(event => { /* event.type でイベントの種類を見る */ });
 | type | データ | いつ |
 |---|---|---|
 | `stage` | `{ place, floor, state }` | ゲームの終わりに階が変わった。`place`: `'floor'`（階）か `'middle'`（前兆の中間階層）。`state`: `'low'` `'high'` `'super'`（階で状態が確定する）。AT 中は出さない |
-| `zone` | `{ active, start }` | 魔天ゾーンに入った・出た（黒い靄） |
+| `zone` | `{ active, start }` | 魔天ゾーンに入った・出た（黒い靄）。そのモードのゾーンのときだけ。前兆といつもセット |
 | `zencho:start` | `{ team, games, cause }` | 前兆が始まった（本物・ガセは教えない）。`team`: `'fiveDX'` `'ask3'` `'muscle'`、`cause`: `'zone'` `'rare'` `'tenjo'` `'stock'`（v0.2: 特化ゾーンが終わったあとのボーナスの放出）。AT 中にも出る（`lever` の `phase` は `'at'`） |
 | `zencho:battle` | `{ round, of, final, win, button }` | 前兆の最後の連続演出（1ゲームに1回）。`final` のときだけ `win`（倒せるか）と `button`（PUSH ボタンの色：`'white'` `'blue'` `'red'` `'gold'` `'rainbow'`）が入る |
 | `zencho:end` | `{ win, bonus }` | 前兆の終わり |
-| `heaven` | `{ who }` | 天国のカットイン（`'naitei'` `'aruaru'`） |
-| `tenjo` | `{ who }` | 天井到達。BIG 確定 |
+| `heaven` | `{ who }` | 天国のカットイン（`'naitei'` `'aruaru'`）。天国にいるときの前兆の始まりに出る（出たら天国確定。天国でも出ないことがある） |
+| `tenjo` | `{ who, bonus }` | 天井到達。BIG 以上確定：`who` が `'naitei'` なら `bonus: 'big'`、`'aruaru'` なら `bonus: 'epbig'`（v0.2 2026-10-21） |
 | `at:direct` | `{}` | AT 直撃（このゲームの演出のあと `at:start` が来る） |
 
 - 前兆はレア役からも始まります。強レア役（強チェリー・強スイカ・チャンス目）でボーナスに当たらなかったときは 50% でガセ前兆、弱レア役からの前兆は本前兆だけです（仕様書 2026-10-21。AT 中も同じ）。

@@ -139,6 +139,16 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             button: rng.weighted(config.show.button[key])
         };
         emit(E.ZENCHO_START, { team: s.zencho.team, games: length, cause });
+        // 天国のカットイン: 天国にいるときの前兆の始まりに出す (出たら天国確定。天国でも出ないことがある。仕様書 2026-10-21)
+        if (s.phase === 'normal' && (s.mode === 'heaven' || s.mode === 'superHeaven') && rng.chance(config.show.heavenCutin)) {
+            emit(E.HEAVEN, { who: rng.chance(config.show.aruaruShare) ? 'aruaru' : 'naitei' });
+        }
+    }
+
+    // 天井: ナイナイなら BIG、アルアルならエピソードBIG (BIG 以上確定。仕様書 2026-10-21)
+    function tenjoBonus() {
+        const who = rng.chance(config.show.tenjoAruaru) ? 'aruaru' : 'naitei';
+        return { who, bonus: who === 'aruaru' ? 'epbig' : 'big' };
     }
 
     function makeReal(zencho, bonus) {
@@ -166,14 +176,16 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         const plan = s.plan;
         const inAt = s.phase === 'at';
         if (plan.kind === 'ceiling' && g === plan.start + 1) {
+            const tenjo = tenjoBonus();
             if (!s.zencho) {
-                startZencho({ real: true, cause: 'tenjo', length: plan.length, bonus: 'big' });
+                startZencho({ real: true, cause: 'tenjo', length: plan.length, bonus: tenjo.bonus });
             } else {
                 // 前兆の途中で天井の前兆の始まりに来たら、その前兆を天井の前兆にする (ちょうど天井で当たる)
-                makeReal(s.zencho, 'big');
+                makeReal(s.zencho, tenjo.bonus);
                 s.zencho.cause = 'tenjo';
                 s.zencho.left = plan.length;
             }
+            s.zencho.tenjoWho = tenjo.who;
         } else if (zoneStarts(s.mode).some(z => g === z + 1)) {
             const start = g - 1;
             const planned = plan.kind === 'zone' && plan.start === start;
@@ -192,7 +204,6 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
                 if (!s.zencho.real) makeReal(s.zencho, bonusType(s.mode));
                 else s.stock.push(bonusType(s.mode));
             }
-            if (!inAt && start === 50 && s.mode === 'heaven') emit(E.HEAVEN, { who: rng.chance(config.show.aruaruShare) ? 'aruaru' : 'naitei' });
         }
     }
 
@@ -232,11 +243,6 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
 
         // ゾーンの開始 (ガセを含めて必ず前兆に入る) と天井
         checkZone();
-
-        // 天国のカットイン
-        if ((s.mode === 'heaven' || s.mode === 'superHeaven') && rng.chance(config.show.heavenCutinRate)) {
-            emit(E.HEAVEN, { who: rng.chance(config.show.aruaruShare) ? 'aruaru' : 'naitei' });
-        }
 
         // レア役
         if (RARE.includes(role)) {
@@ -289,7 +295,7 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             }
             emit(E.ZENCHO_END, { win: z.real, bonus: z.real ? z.bonus : null });
             if (z.real) {
-                if (z.cause === 'tenjo') emit(E.TENJO, { who: rng.chance(config.show.tenjoAruaru) ? 'aruaru' : 'naitei' });
+                if (z.cause === 'tenjo') emit(E.TENJO, { who: z.tenjoWho || 'naitei', bonus: z.bonus });
                 winBonus(z.bonus);
             }
         }
@@ -435,7 +441,7 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             s.zencho = null;
             emit(E.ZENCHO_END, { win: z.real, bonus: z.real ? z.bonus : null });
             if (z.real) {
-                if (z.cause === 'tenjo') emit(E.TENJO, { who: rng.chance(config.show.tenjoAruaru) ? 'aruaru' : 'naitei' });
+                if (z.cause === 'tenjo') emit(E.TENJO, { who: z.tenjoWho || 'naitei', bonus: z.bonus });
                 winBonus(z.bonus);
                 return;
             }

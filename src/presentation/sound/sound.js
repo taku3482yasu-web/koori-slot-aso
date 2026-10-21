@@ -185,4 +185,22 @@ function setMuted(on) {
     try { localStorage.setItem('koori-slot-muted', on ? '1' : '0'); } catch (e) { /* 無視 */ }
 }
 
-export const Sound = { unlock, play, sakibare, bgm, setMuted, get muted() { return muted; } };
+// 声: ブラウザの読み上げ (日本語の声があるときだけ。ないときは何もしない = 効果音だけ)。画面設計書 7-2・8章 10
+// 「AT確定！」などの当たりの声に使う。音を消しているときは読まない
+function say(words) {
+    if (muted || typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return;
+    const voice = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
+    if (!voice) return;
+    const u = new SpeechSynthesisUtterance(words);
+    u.voice = voice;
+    u.lang = voice.lang;
+    u.rate = 1.15;
+    u.pitch = 1.4;
+    u.volume = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+}
+// 声の一覧は後から読みこまれることがあるので、先に一度たずねておく
+if (typeof speechSynthesis !== 'undefined') speechSynthesis.getVoices();
+
+export const Sound = { unlock, play, sakibare, bgm, say, setMuted, get muted() { return muted; } };

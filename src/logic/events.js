@@ -20,8 +20,8 @@ export const EVENTS = {
     ZENCHO_START: 'zencho:start', // { team, games, cause }  team: 'fiveDX' | 'ask3' | 'muscle' / cause: 'zone' | 'rare' | 'tenjo' | 'stock'。AT 中にも出る
     ZENCHO_BATTLE: 'zencho:battle', // { round, of, final, win, button }  最後の連続演出。final のときだけ win が意味を持つ
     ZENCHO_END: 'zencho:end',     // { win, bonus }  前兆の終わり (win: 相手チームを倒した = ボーナス確定)
-    HEAVEN: 'heaven',             // { who }  天国のカットイン ('naitei' | 'aruaru')
-    TENJO: 'tenjo',               // { who }  天井到達 ('naitei' | 'aruaru')。BIG 確定
+    HEAVEN: 'heaven',             // { who }  天国のカットイン ('naitei' | 'aruaru')。天国の前兆の始まりに出る (出たら天国確定)
+    TENJO: 'tenjo',               // { who, bonus }  天井到達。BIG 以上確定 (who: 'naitei' = BIG / 'aruaru' = エピソードBIG)
     DIRECT: 'at:direct',          // {}  AT 直撃 (このゲームの演出のあと AT が始まる)
 
     // ----- 疑似ボーナス -----

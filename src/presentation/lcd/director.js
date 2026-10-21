@@ -146,6 +146,8 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
         v.kakutei = { since: now, label: v.bonus && v.bonus.inAt ? '' : atLabel() };
         sound.play('kooriAlign');
         after(250, () => sound.play('atKakutei'));
+        // 「AT確定！」の声 (ブラウザの読み上げ。AT 中のボーナスは勝利の画面で「特化ゾーン確定！」)
+        if (!(v.bonus && v.bonus.inAt)) after(700, () => sound.say && sound.say(`${atLabel()}！`));
         setButton('rainbow', { pop: true });
     }
 
@@ -547,6 +549,7 @@ export function createDirector({ sound, reels, onChange = () => {} }) {
             else sound.play(e.win ? 'win' : 'lose');
             if (kind === 'win') {
                 if (v.bonus) v.bonus.tokka = true;
+                after(500, () => sound.say && sound.say('特化ゾーン確定！'));
                 setButton('rainbow', { pop: true });
             }
             wait(BOSS_MS[kind], () => {

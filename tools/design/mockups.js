@@ -78,7 +78,7 @@ function tenjo(ctx) {
     rays(ctx, W / 2, 100, RAINBOW, 36, 0.55);
     ch(ctx, 'aruaru', W / 2, 168, { scale: 2.6 });
     text(ctx, '天井到達！', W / 2, 24, { size: 22, color: rainbow(ctx, 100, 0, 220, 0), lw: 5 });
-    text(ctx, 'BIG確定', W / 2, 160, { size: 18, color: '#ffe040', lw: 5 });
+    text(ctx, 'エピソードBIG確定', W / 2, 160, { size: 18, color: rainbow(ctx, 80, 0, 240, 0), lw: 5 });
 }
 
 function zenchoBattle(ctx) {

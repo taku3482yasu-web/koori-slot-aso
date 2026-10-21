@@ -142,11 +142,11 @@ export const CONFIG = {
         flashRate: 0.7,
         // 先バレ音 (レバー ON)。レア役のときの鳴りやすさ
         sakibare: { weakCherry: 0.1, weakSuika: 0.1, strongCherry: 0.35, strongSuika: 0.35, chance: 0.35, midCherry: 1 },
-        // 天国のカットイン (1ゲームごと) とアルアルの割合
-        heavenCutinRate: 1 / 25,
+        // 天国のカットイン: 天国にいるときの前兆の始まりに出す率 (仕様書 2026-10-21) とアルアルの割合【仮】
+        heavenCutin: 0.25,
         aruaruShare: 0.3,
-        // 天井でアルアルが出る割合
-        tenjoAruaru: 0.3,
+        // 天井でアルアルが出る割合 (アルアル = エピソードBIG、ナイナイ = BIG。仕様書の仮 20%)
+        tenjoAruaru: 0.2,
         // AT 中のボーナスの相手 (特化ゾーンに当たる見込みが高いほど強い相手)【仮】
         boss: {
             win: { daishi: 10, zumitani: 15, runaya: 20, nozoema: 25, maou: 30 },

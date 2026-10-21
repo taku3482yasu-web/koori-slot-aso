@@ -297,7 +297,11 @@ export function drawTenjo(ctx, t, since, who) {
     const rise = ease(since / 800);
     ch(ctx, who, W / 2, 168 + (1 - rise) * 120, { scale: who === 'aruaru' ? 2.6 : 2.8 });
     text(ctx, '天井到達！', W / 2, 24, { size: 22, color: rainbow(ctx, 100, 0, 220, 0), lw: 5 });
-    if (since > 900) text(ctx, 'BIG確定', W / 2, 160, { size: 20, color: '#ffe040', lw: 5 });
+    // 天井は BIG 以上確定: ナイナイなら BIG、アルアルならエピソードBIG (仕様書 2026-10-21)
+    if (since > 900) {
+        if (who === 'aruaru') text(ctx, 'エピソードBIG確定', W / 2, 160, { size: 20, color: rainbow(ctx, 70, 0, 250, 0), lw: 5 });
+        else text(ctx, 'BIG確定', W / 2, 160, { size: 20, color: '#ffe040', lw: 5 });
+    }
 }
 
 // ----- AT 直撃 -----

@@ -68,13 +68,13 @@ test('前兆の最後のバトルは、本物なら勝ち・ガセなら負け',
     }
 });
 
-test('天井はちょうどの G で当たり、BIG になる', () => {
+test('天井はちょうどの G で当たり、ナイナイなら BIG・アルアルならエピソードBIG', () => {
     const m = createMachine({ seed: 9 });
     const rng = createRng(2);
     let standby = null;
     let tenjo = false;
     m.on(e => {
-        if (e.type === EVENTS.TENJO) tenjo = true;
+        if (e.type === EVENTS.TENJO) tenjo = e;
         if (e.type === EVENTS.BONUS_STANDBY && !standby) standby = e;
     });
     m.debug.ceilingSoon();
@@ -83,7 +83,8 @@ test('天井はちょうどの G で当たり、BIG になる', () => {
         play(m, rng);
     }
     assert.ok(tenjo);
-    assert.equal(standby.bonus, 'big');
+    assert.equal(standby.bonus, tenjo.who === 'aruaru' ? 'epbig' : 'big');
+    assert.equal(tenjo.bonus, standby.bonus);
 });
 
 test('AT 直撃 (デバッグ) で AT が始まる', () => {
@@ -231,4 +232,26 @@ test('前兆の途中で AT のゲーム数がなくなると、ラストジャ�
         assert.equal(next.type, real ? EVENTS.BONUS_STANDBY : EVENTS.AT_END);
         if (!real) assert.ok(next.hint, 'at:end に hint がある');
     }
+});
+
+test('天国のカットインは、天国の前兆の始まりにだけ出る', () => {
+    let heavens = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+        const m = createMachine({ seed });
+        const rng = createRng(seed);
+        let lastStart = -1;
+        let game = 0;
+        m.on(e => {
+            if (e.type === EVENTS.LEVER) game = e.game;
+            if (e.type === EVENTS.ZENCHO_START) lastStart = game;
+            if (e.type === EVENTS.HEAVEN) {
+                heavens++;
+                assert.equal(lastStart, game, '前兆の始まりと同じゲーム');
+                assert.ok(['heaven', 'superHeaven'].includes(m.debug.internal().mode));
+            }
+        });
+        m.debug.setMode('heaven');
+        for (let i = 0; i < 300; i++) play(m, rng);
+    }
+    assert.ok(heavens > 0);
 });
