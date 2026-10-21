@@ -127,6 +127,7 @@ test('特化ゾーン (仮組): ストック → 始まり → 3G ずつのセ�
         const sets = inside.filter(e => e.type === EVENTS.TOKKA_SET);
         assert.equal(games.length, sets.length * 3, '1セット3G');
         assert.ok(games.every(g => g.add >= 5), '毎ゲーム 5G 以上');
+        assert.ok(games.every(g => typeof g.hit === 'boolean'), 'hit (リプレイ以上を引いた) がある');
         assert.ok(sets.slice(0, -1).every(x => x.cont) && !sets[sets.length - 1].cont, '最後のセットだけ続かない');
         const total = games.reduce((a, g) => a + g.add, 0);
         assert.equal(log[end].total, total);

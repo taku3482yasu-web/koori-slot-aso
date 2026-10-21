@@ -509,7 +509,7 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
         t.guarantee += cfg.guarantee[role] || 0;
         // 特化ゾーン中も、レア役で特化ゾーンを抽選する (終わったら続けて始める)
         if (RARE.includes(role) && rng.chance((cfg.rate[role] || 0) / 100)) s.tokkaWon = true;
-        emit(E.TOKKA_GAME, { set: t.set, game: t.game, add, guarantee: t.guarantee });
+        emit(E.TOKKA_GAME, { set: t.set, game: t.game, add, guarantee: t.guarantee, hit: role === 'replay' || RARE.includes(role) });
     }
 
     // セットの終わり: 継続確定 → リプレイ以上を引いた → 継続率テーブル (復活) の順に見る

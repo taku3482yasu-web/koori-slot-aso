@@ -43,7 +43,7 @@ export const EVENTS = {
     // ----- 上乗せ特化ゾーン -----
     TOKKA_STOCK: 'tokka:stock',   // { stock }  特化ゾーンに当たった (当たったゲームの終わり)
     TOKKA_START: 'tokka:start',   // { stock }  特化ゾーンが始まる (次のレバーから)
-    TOKKA_GAME: 'tokka:game',     // { set, game, add, guarantee }  特化ゾーンの1ゲーム (レバーのとき)
+    TOKKA_GAME: 'tokka:game',     // { set, game, add, guarantee, hit }  hit: リプレイ以上を引いた (自力継続の条件)  特化ゾーンの1ゲーム (レバーのとき)
     TOKKA_SET: 'tokka:set',       // { set, cont, revive }  セットの終わり
     TOKKA_END: 'tokka:end'        // { total, sets, left }  特化ゾーンの終わり
 };
