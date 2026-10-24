@@ -21,6 +21,7 @@ import { BIG_CARDS, EPISODES, REG_CARDS } from './bonusStory.js';
 import { FINISHERS, LINES, SPECIALS } from './battleLines.js';
 import { CUTIN_MS, TALK_MS, drawSpecialCutin, drawTalk } from './special.js';
 import { chanceCutin, neraeCutin } from './cutinCast.js';
+import { CRACK_MS, drawCrack, drawHotFrame } from './premium.js';
 import { HIT_AT, SKILL_KIND, SKILL_MS } from './skillFx.js';
 import {
     INTRO_MS, OPEN_STEP_MS, RESULT_MS, STOCK_MS, TOKKA_END_MS, drawTokka, drawTokkaEnd, drawTokkaIntro, drawTokkaSelect, drawTokkaStock
@@ -100,6 +101,8 @@ export function createDirector({ sound, reels, onChange = () => {}, onEpisode = 
         battle: null,
         standby: null,
         bonus: null,
+        hot: 0,            // 熱いときに 震える 枠 (2026-10-24): 1 赤 / 2 金 / 3 虹。次の レバーで 0
+        crack: null,       // プレミア「液晶の ひび割れ」(2026-10-24): { since, snap }
         nerae: null,       // 「こおりを狙え」のゲーム: { color, win, stops, order, phase, endAt }
         kakutei: null,     // AT確定 (こおりくん揃い): { since, label }
         bonusEnd: null,    // ボーナス終了の画面: { bonus, payout, at, stock, since }
@@ -573,6 +576,7 @@ export function createDirector({ sound, reels, onChange = () => {}, onEpisode = 
     const handlers = {
         [E.LEVER]() {
             sound.play('lever');
+            v.hot = 0;
             v.lastPayout = 0;
             v.battle = null;
             v.nerae = null;
@@ -597,6 +601,7 @@ export function createDirector({ sound, reels, onChange = () => {}, onEpisode = 
                 cutinOverlay('cutin', 1800, { color: e.color, who: c.who, line: c.line });
                 sound.play('cutin');
                 if (e.color === 'gold' || e.color === 'rainbow') setButton(e.color, { pop: e.color === 'rainbow' });
+                v.hot = Math.max(v.hot, { red: 1, gold: 2, rainbow: 3 }[e.color] || 0);   // 震える 枠
             } else if (e.kind === 'flash') {
                 overlay('flash', 700, { level: e.level });
                 sound.play(e.level === 'rainbow' ? 'flashRainbow' : e.level === 'big' ? 'flashBig' : 'flashSmall');
@@ -605,6 +610,16 @@ export function createDirector({ sound, reels, onChange = () => {}, onEpisode = 
             } else if (e.kind === 'kakutei') {
                 sound.play('kakutei');
                 setButton('rainbow', { pop: true });
+                v.hot = 3;
+            } else if (e.kind === 'premium' && e.effect === 'crack') {
+                // プレミア「液晶の ひび割れ」(v0.8)。音は 場面に 合わせて
+                v.crack = { since: now, snap: null };
+                v.hot = 3;
+                after(CRACK_MS.crack, () => sound.play('premiumCrack'));
+                after(CRACK_MS.smash, () => sound.play('premiumSmash'));
+                after(CRACK_MS.roar, () => sound.play('premiumRoar'));
+                after(CRACK_MS.kakutei, () => sound.play('kakutei'));
+                after(CRACK_MS.end, () => { v.crack = null; changed(); });
             }
         },
 
@@ -1204,6 +1219,8 @@ export function createDirector({ sound, reels, onChange = () => {}, onEpisode = 
             text(ctx, '⚠ ナビに従ってください', W / 2, 84, { size: 18, color: '#ffffff', lw: 4, stroke: '#3a0008' });
         }
         drawIwakan(ctx, t);
+        if (v.crack && t >= v.crack.since) drawCrack(ctx, t, t - v.crack.since, v.crack);   // プレミア「液晶の ひび割れ」
+        drawHotFrame(ctx, t, v.hot);   // 熱いときに 震える 枠
         if (v.banner) {
             rect(ctx, 0, 70, W, 40, 'rgba(0,0,0,.75)');
             text(ctx, v.banner.text, W / 2, 90, { size: 16, color: v.banner.rainbow ? rainbow(ctx, 60, 0, 260, 0) : '#ffffff', lw: 4 });

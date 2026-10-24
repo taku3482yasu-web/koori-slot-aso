@@ -1,6 +1,6 @@
 # 内部処理と演出の約束（台の窓口とイベント）
 
-版: v0.7（2026-10-21。`at:bossJudge` の `finisher` に `'kooriKill'`（こおりくんの絶対殺す剣。確定）を足した。v0.6 で `at:bossAttack` と `at:bossJudge` を足した）
+版: v0.8（2026-10-24。`notice` に `premium`（プレミア「液晶のひび割れ」）を足した。v0.7 は 2026-10-21。`at:bossJudge` の `finisher` に `'kooriKill'`（こおりくんの絶対殺す剣。確定）を足した。v0.6 で `at:bossAttack` と `at:bossJudge` を足した）
 
 演出（`src/presentation/`）と内部処理（`src/logic/`）は、ここに書いた約束だけでつながっています。
 今の `src/logic/` は、演出を確認するための **仮組** です。本物の内部処理を作ったら、`src/logic/` を差しかえてください。この約束がそろっていれば、演出側を直さずに動きます。
@@ -72,6 +72,7 @@ machine.on(event => { /* event.type でイベントの種類を見る */ });
 | `flash` | `{ timing: 'afterStop', level }` | レア役のフラッシュ。`level`: `'small'` `'big'` `'rainbow'` |
 | `cutin` | `{ timing: 'lever', color }` | 前兆中のカットイン。`color`: `'blue'` `'green'` `'red'` `'gold'` `'rainbow'` |
 | `kakutei` | `{ timing: 'afterStop' }` | 確定音 |
+| `premium` | `{ timing: 'lever', effect }` | （v0.8 新）プレミア演出。**確定のゲームだけ**で出す（出す率は内部処理が決める）。`effect: 'crack'`：液晶がまっぷたつにひび割れ、すき間からおにおにが出てきて画面を粉砕し、咆哮して「確定!!」（約 4.8 秒。画面設計書 5-8） |
 | `iwakan` | `{ timing: 'lever', effect }` | （v0.4 新）違和感演出。AT 中（特化ゾーン中を除く）のレバーで出す。`effect` は下の表（イベントの種類の `type` と重ならないよう、名前は `effect`）。ボーナスか特化ゾーンに当たったゲームで出やすく、当たっていなくてもたまに出す（ガセ）。出す率は内部処理が決める |
 
 `iwakan` の `effect`（画面設計書 5-7）：
@@ -276,6 +277,12 @@ machine.on(event => { /* event.type でイベントの種類を見る */ });
 - デバッグに `bossJudge(win)` を足してください（3章）。
 - バトル画面とボーナス画面の切りかえ（PUSH・液晶のタップ）は演出側だけで行うので、内部処理の追加はいりません。
 - 足した部分だけを `handoff/2026-10-21_boss-battle/` にまとめました。
+
+### 2026-10-24 演出側からのお願い（プレミア「液晶のひび割れ」・震える枠）
+
+- **`notice` に `premium`（`{ timing: 'lever', effect: 'crack' }`）を足してください**（2章の `notice` の表）。確定のゲーム（仮組は中段チェリー）の一部で、レバーのときに出してください。仮組は中段チェリーの 30%（`config.show.premiumCrack`）【仮】。
+- 「熱いときに震える枠」は、今ある `cutin` の色（赤・金・虹）と `kakutei` から演出側が出すので、追加はいりません。
+- 足した部分だけを `handoff/2026-10-24_premium-crack/` にまとめました。
 
 ### 2026-10-21 演出側からのお願い（ラストジャッジの絶対殺す剣）
 

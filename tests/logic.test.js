@@ -332,3 +332,27 @@ test('天国のカットインは、天国の前兆の始まりにだけ出る',
     }
     assert.ok(heavens > 0);
 });
+
+test('プレミア「液晶のひび割れ」(v0.8): 確定のゲーム (中段チェリー) の一部で、レバーのときに notice の premium が出る', () => {
+    let premium = 0, games = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+        const m = createMachine({ seed });
+        const rng = createRng(seed);
+        let seen = false, kakutei = false;
+        m.on(e => {
+            if (e.type === EVENTS.NOTICE && e.kind === 'premium') {
+                assert.equal(e.timing, 'lever');
+                assert.equal(e.effect, 'crack');
+                seen = true;
+            }
+            if (e.type === EVENTS.NOTICE && e.kind === 'kakutei') kakutei = true;
+        });
+        m.debug.setNextRole('midCherry');
+        play(m, rng);
+        if (!kakutei) continue;   // 状態によって 中段チェリーの 扱いが ちがう ときは 数えない
+        games++;
+        if (seen) premium++;
+    }
+    assert.ok(games > 50, `中段チェリーの ゲームが 少ない (${games})`);
+    assert.ok(premium > 0 && premium < games, `ひび割れは 一部だけ (${premium}/${games})`);
+});

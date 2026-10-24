@@ -136,6 +136,8 @@ export const CONFIG = {
         rounds: { real: { 1: 20, 2: 30, 3: 50 }, gase: { 1: 60, 2: 30, 3: 10 } },
         // 前兆中のカットイン (1ゲームごとの出やすさと、色の振り分け)
         cutinRate: 1 / 6,
+        // プレミア「液晶のひび割れ」(2026-10-24): 確定のゲーム (仮組は 中段チェリー) で 出す 割合【仮】
+        premiumCrack: 0.3,
         cutin: { real: { blue: 30, green: 25, red: 25, gold: 15, rainbow: 5 }, gase: { blue: 60, green: 30, red: 9, gold: 1 } },
         // 最後のバトルの PUSH ボタンの色
         button: { real: { white: 30, blue: 20, red: 30, gold: 15, rainbow: 5 }, gase: { white: 70, blue: 20, red: 9, gold: 1 } },

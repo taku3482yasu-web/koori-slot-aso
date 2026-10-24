@@ -1,0 +1,58 @@
+diff --git a/src/logic/config.js b/src/logic/config.js
+index f96f5eb..768fc0b 100644
+--- a/src/logic/config.js
++++ b/src/logic/config.js
+@@ -136,6 +136,8 @@ export const CONFIG = {
+         rounds: { real: { 1: 20, 2: 30, 3: 50 }, gase: { 1: 60, 2: 30, 3: 10 } },
+         // 前兆中のカットイン (1ゲームごとの出やすさと、色の振り分け)
+         cutinRate: 1 / 6,
++        // プレミア「液晶のひび割れ」(2026-10-24): 確定のゲーム (仮組は 中段チェリー) で 出す 割合【仮】
++        premiumCrack: 0.3,
+         cutin: { real: { blue: 30, green: 25, red: 25, gold: 15, rainbow: 5 }, gase: { blue: 60, green: 30, red: 9, gold: 1 } },
+         // 最後のバトルの PUSH ボタンの色
+         button: { real: { white: 30, blue: 20, red: 30, gold: 15, rainbow: 5 }, gase: { white: 70, blue: 20, red: 9, gold: 1 } },
+diff --git a/src/logic/machine.js b/src/logic/machine.js
+index 6d7eb5d..25fc1fc 100644
+--- a/src/logic/machine.js
++++ b/src/logic/machine.js
+@@ -259,6 +259,8 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG
+             if (rng.chance(config.show.sakibare[role] || 0)) notices.push({ kind: 'sakibare', timing: 'lever', pitch: 'normal' });
+             if (rng.chance(config.show.flashRate) || role === 'midCherry') notices.push({ kind: 'flash', timing: 'afterStop', level: config.show.flash[role] });
+             if (role === 'midCherry') notices.push({ kind: 'kakutei', timing: 'afterStop' });
++            // プレミア「液晶のひび割れ」(v0.8): 確定の ゲームの 一部で、レバーの ときに
++            if (role === 'midCherry' && rng.chance(config.show.premiumCrack)) notices.push({ kind: 'premium', timing: 'lever', effect: 'crack' });
+         }
+ 
+         // ハズレで転落
+diff --git a/tests/logic.test.js b/tests/logic.test.js
+index 36d03d3..7eee2a7 100644
+--- a/tests/logic.test.js
++++ b/tests/logic.test.js
+@@ -332,3 +332,27 @@ test('天国のカットインは、天国の前兆の始まりにだけ出る',
+     }
+     assert.ok(heavens > 0);
+ });
++
++test('プレミア「液晶のひび割れ」(v0.8): 確定のゲーム (中段チェリー) の一部で、レバーのときに notice の premium が出る', () => {
++    let premium = 0, games = 0;
++    for (let seed = 1; seed <= 200; seed++) {
++        const m = createMachine({ seed });
++        const rng = createRng(seed);
++        let seen = false, kakutei = false;
++        m.on(e => {
++            if (e.type === EVENTS.NOTICE && e.kind === 'premium') {
++                assert.equal(e.timing, 'lever');
++                assert.equal(e.effect, 'crack');
++                seen = true;
++            }
++            if (e.type === EVENTS.NOTICE && e.kind === 'kakutei') kakutei = true;
++        });
++        m.debug.setNextRole('midCherry');
++        play(m, rng);
++        if (!kakutei) continue;   // 状態によって 中段チェリーの 扱いが ちがう ときは 数えない
++        games++;
++        if (seen) premium++;
++    }
++    assert.ok(games > 50, `中段チェリーの ゲームが 少ない (${games})`);
++    assert.ok(premium > 0 && premium < games, `ひび割れは 一部だけ (${premium}/${games})`);
++});

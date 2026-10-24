@@ -79,6 +79,10 @@ const SOUNDS = {
     flashSmall: () => tone(1760, 0, 0.12, { volume: 0.05, type: 'triangle' }),
     flashBig: () => { tone(1568, 0, 0.1); tone(2093, 0.1, 0.25); },
     flashRainbow: () => [1047, 1319, 1568, 2093, 2637].forEach((f, i) => tone(f, i * 0.06, 0.3, { volume: 0.07 })),
+    // プレミア「液晶の ひび割れ」(2026-10-24): ピキッ / バリィン / おにおにの 咆哮
+    premiumCrack: () => { tone(2400, 0, 0.05, { volume: 0.08 }); tone(1800, 0.07, 0.05, { volume: 0.07 }); tone(3000, 0.16, 0.08, { volume: 0.08, slideTo: 900 }); },
+    premiumSmash: () => { noise(0, 0.5, 0.15); tone(80, 0, 0.5, { volume: 0.14, type: 'sawtooth', slideTo: 40 }); },
+    premiumRoar: () => { tone(70, 0, 1.4, { volume: 0.16, type: 'sawtooth', slideTo: 45 }); tone(105, 0.05, 1.3, { volume: 0.12, type: 'sawtooth', slideTo: 60 }); tone(140, 0.1, 1.1, { volume: 0.08, type: 'square', slideTo: 70 }); },
     kakutei: () => { tone(2637, 0, 0.12, { volume: 0.08 }); tone(3136, 0.14, 0.18, { volume: 0.08 }); tone(3520, 0.34, 0.4, { volume: 0.08 }); },
     cutin: () => tone(330, 0, 0.25, { slideTo: 1320, volume: 0.06, type: 'sawtooth' }),
     push: () => tone(1568, 0, 0.1, { volume: 0.06 }),

@@ -259,6 +259,8 @@ export function createMachine({ setting = 1, seed = Date.now(), config = CONFIG 
             if (rng.chance(config.show.sakibare[role] || 0)) notices.push({ kind: 'sakibare', timing: 'lever', pitch: 'normal' });
             if (rng.chance(config.show.flashRate) || role === 'midCherry') notices.push({ kind: 'flash', timing: 'afterStop', level: config.show.flash[role] });
             if (role === 'midCherry') notices.push({ kind: 'kakutei', timing: 'afterStop' });
+            // プレミア「液晶のひび割れ」(v0.8): 確定の ゲームの 一部で、レバーの ときに
+            if (role === 'midCherry' && rng.chance(config.show.premiumCrack)) notices.push({ kind: 'premium', timing: 'lever', effect: 'crack' });
         }
 
         // ハズレで転落
