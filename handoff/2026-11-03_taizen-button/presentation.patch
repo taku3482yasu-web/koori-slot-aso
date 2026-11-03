@@ -1,0 +1,12 @@
+diff --git a/src/presentation/App.jsx b/src/presentation/App.jsx
+index 1e25a05..8f0e069 100644
+--- a/src/presentation/App.jsx
++++ b/src/presentation/App.jsx
+@@ -112,6 +112,7 @@ export default function App() {
+             <aside className="side">
+                 <div className="side-buttons">
+                     <button type="button" onClick={() => setShowZukan(true)}>★ 図鑑</button>
++                    <button type="button" title="ゲーム大全に もどる" onClick={() => { if (window.confirm('ゲーム大全に もどる？')) window.location.href = 'https://taku3482yasu-web.github.io/koori-game-taizen/'; }}>🏠 大全</button>
+                     <button type="button" onClick={toggleMute}>{muted ? '音: OFF' : '音: ON'}</button>
+                     <button type="button" onClick={() => setShowDebug(s => !s)}>{showDebug ? 'デバッグを閉じる' : 'デバッグ'}</button>
+                 </div>
